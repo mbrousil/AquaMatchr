@@ -1,4 +1,4 @@
-MIT License
+# MIT License
 
 Copyright (c) 2025 Radical Open Science Syndicate and all contributors
 
