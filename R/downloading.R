@@ -86,7 +86,7 @@ construct_id <- function(identifier, version){
 #' @param version Either "newest" or an integer corresponding to the data package
 #' version to use. Note that in its current form, this function uses a single
 #' value for every parameter requested. So, if `c("chla", "doc", "sdd")` is provided
-#' to `parameters` and a 2 is provided to `version`, the second version of each
+#' to `parameters` and a `2` is provided to `version`, the second version of each
 #' dataset will be requested, whether or not it actually exists.
 #'
 #' @returns A named list where each item is a tibble containing a dataset.
@@ -108,7 +108,7 @@ download_parameters <- function(parameters, version = "newest"){
     "chla",  1756,        "chla_harmonized_final",
     "doc",   1809,        "doc_harmonized_final",
     "sdd",   1856,        "sdd_harmonized_final",
-    "tss",   2048 ,       "tss_harmonized_final"
+    "tss",   2048,        "tss_harmonized_final"
   )
 
   # Keep what we need
