@@ -6,7 +6,7 @@
 #' ID links to an actual package.
 #'
 #' @param identifier The accession number corresponding to an EDI package
-#' @param version Either "newest" or an integer corresponding to the package version
+#' @param version Either "newest" or an integer corresponding to the data package version
 #'
 #' @returns A string containing the [data package identifier](https://edirepository.org/resources/the-data-package#identifiers-of-a-data-package) for an EDI data package
 #'
@@ -63,7 +63,74 @@ construct_id <- function(identifier, version){
 
 }
 
+#' Download one or more AquaMatch harmonized data products from EDI
+#'
+#' @description
+#' A function to facilitate downloading AquaMatch harmonized data products from
+#' the Environmental Data Initiative (EDI). It accepts one or more shortened
+#' parameter names, downloads the corresponding dataset(s) from EDI, and
+#' returns them to the user as list items.
+#'
+#' @note
+#' Returned datasets will be large (hundreds of MB in size), so users with limited
+#' computer memory may wish to run a separate function call for each dataset
+#' they want to download. These datasets will also be loaded into memory, meaning
+#' that they are not currently saved permanently to the user's computer. We
+#' suggest using `readr::write_csv()` or `feather::write_feather()` to save
+#' permanent local copies.
+#'
+#' @param parameters A character vector containing one or more strings of AquaMatch
+#' parameters to download (written as abbreviations). Options are currently
+#' "chla" for chlorophyll *a*, "doc" for dissolved organic carbon, "sdd" for
+#' Secchi disk depth, and "tss" for total suspended solids.
+#' @param version Either "newest" or an integer corresponding to the data package
+#' version to use. Note that in its current form, this function uses a single
+#' value for every parameter requested. So, if `c("chla", "doc", "sdd")` is provided
+#' to `parameters` and a 2 is provided to `version`, the second version of each
+#' dataset will be requested, whether or not it actually exists.
+#'
+#' @returns A named list where each item is a tibble containing a dataset.
+#' @export
+#'
+#' @examples
+#' # Downloads the most recent version of the Secchi disk depth dataset
+#' sdd_test <- download_parameters(parameters = "sdd")
+#' # This is a list with a single item
+#' length(sdd_test)
+#' # Extract data frame from the list:
+#' sdd <- sdd_test$sdd
+download_parameters <- function(parameters, version = "newest"){
 
-download_chlorophyll <- function(version = "newest"){
+  # Metadata on each parameter's EDI identifier and the entity name of its
+  # harmonized data product
+  param_metadata <- dplyr::tribble(
+    ~param, ~identifier, ~entity_name,
+    "chla",  1756,        "chla_harmonized_final",
+    "doc",   1809,        "doc_harmonized_final",
+    "sdd",   1856,        "sdd_harmonized_final",
+    "tss",   2048 ,       "tss_harmonized_final"
+  )
 
+  # Keep what we need
+  param_selection <- param_metadata %>%
+    dplyr::filter(param %in% parameters)
+
+  # For each param, read and save in list
+  split(param_selection, f = param_selection$param) %>%
+    map(.x = .,
+        .f = ~{
+          # EDI package ID
+          param_id <- construct_id(identifier = .x$identifier, version = version)
+
+          # EDI entity ID (specific file to download)
+          entity_id <- EDIutils::read_data_entity_names(packageId = param_id) %>%
+            dplyr::filter(entityName == .x$entity_name) %>%
+            dplyr::pull(entityId)
+
+          # Read in data as raw bytes
+          raw_bytes <- EDIutils::read_data_entity(packageId = param_id,
+                                                  entityId = entity_id)
+          # Parse
+          readr::read_csv(raw_bytes)
+        })
 }

@@ -12,4 +12,6 @@ Imports:
     dplyr,
     tidyr
 Suggests: 
-    EDIutils
+    EDIutils,
+    purrr,
+    readr
