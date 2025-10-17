@@ -6,7 +6,7 @@ vignette: >
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
-  
+
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
 collapse = TRUE,
@@ -14,11 +14,12 @@ comment = "#>"
 )
 ```
 
+## Downloading and saving parameters
+
 A primary use case for the `{AquaMatchr}` package is to facilitate downloading [AquaMatch](https://aquasat.github.io/AquaMatch_documentation/) data products from the [Environmental Data Initiative ("EDI")](https://edirepository.org/). repository. This vignette walks through how `{AquaMatchr}` functions are used to do this. Note that you are free to do this manually by visiting the EDI website, but the functions in this package are designed to make the process simpler to do entirely within R.
 
 We start by loading the package and any other packages we'll want to use for data wrangling, etc.
-
-```{r setup}
+```{r setup, message = FALSE, warning = FALSE}
 library(AquaMatchr)
 library(tidyverse)
 library(feather)
@@ -59,8 +60,7 @@ format(object.size(tss_sdd_data$tss), "MB")
 format(object.size(tss_sdd_data$sdd), "MB")
 ```
 
-If you would like to pull out the data frames from the list to make using them
-easier, you can do it like this:
+If you would like to pull out the data frames from the list to make using them easier, you can do it like this:
 ```{r deconstruct-list}
 tss_df <- tss_sdd_data$tss
 
@@ -71,15 +71,30 @@ rm(tss_sdd_data)
 gc()
 ```
 
-And finally, if you'd like to save the datasets permanently for use after this
-R session, you might do it like this:
+And finally, if you'd like to save the datasets permanently for use after this R session, you might do it like this (but include a usable file path):
 ```{r save-param-data, eval=FALSE}
 write_feather(x = tss_df, path = "path/to/folder/of/choice")
 ```
 
-Feather files are both time- and space-efficient ways to store data for use in R
-and other programming languages. (See, for example, [sections 5.4.2 and 5.4.3](https://csgillespie.github.io/efficientR/input-output.html) in Gillespie &
-Lovelace, 2021). You could also use a `.csv` or `.rds` format here, for example.
+Feather files are both time- and space-efficient ways to store data for use in R and other programming languages. (See, for example, [sections 5.4.2 and 5.4.3](https://csgillespie.github.io/efficientR/input-output.html) in Gillespie & Lovelace, 2021). You could also use a `.csv` or `.rds` format here, for example.
 
+### Selecting specific parameter versions
 
+There may be instances where you do not want to use the newest version of a published AquaMatch dataset. You can provide an integer number to the `version` argument in place of "newest" to indicate which version, or "revision", you want to retrieve. If you're not sure, you can check how many revisions exist for each dataset on the EDI page for each data release under *Package ID* \> *all revisions*. For example, for TSS that would bring you to [this page](https://portal.edirepository.org/nis/revisionbrowse?scope=edi&identifier=2048). Doing so currently requests that version number for all parameters in your request, so if you don't want, e.g., version 2 of each dataset, you may wish to do your requests separately. For example:
+```{r demonstrate-versions, error = TRUE}
+# This will fail because SDD does not have a version 2
+download_parameters(
+  parameters = c("tss", "sdd"),
+  version = 2
+)
 
+tss_v2 <- download_parameters(
+  parameters = "tss",
+  version = 2
+)
+
+sdd_v1 <- download_parameters(
+  parameters = "sdd",
+  version = 1
+)
+```
