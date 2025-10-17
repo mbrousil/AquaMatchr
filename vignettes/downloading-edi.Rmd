@@ -1,0 +1,85 @@
+---
+title: "Downloading data from EDI"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{downloading-edi}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+  
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+collapse = TRUE,
+comment = "#>"
+)
+```
+
+A primary use case for the `{AquaMatchr}` package is to facilitate downloading [AquaMatch](https://aquasat.github.io/AquaMatch_documentation/) data products from the [Environmental Data Initiative ("EDI")](https://edirepository.org/). repository. This vignette walks through how `{AquaMatchr}` functions are used to do this. Note that you are free to do this manually by visiting the EDI website, but the functions in this package are designed to make the process simpler to do entirely within R.
+
+We start by loading the package and any other packages we'll want to use for data wrangling, etc.
+
+```{r setup}
+library(AquaMatchr)
+library(tidyverse)
+library(feather)
+```
+
+The `AquaMatchr::download_parameters()` function is the method that we've provided to download harmonized *in-situ* sampling data from AquaMatch. It will download the data from EDI and load it into the R environment as a component item of a `list`. (It does **not** save permanent local copies of the datasets automatically.)
+
+For example, the following code snippet can be used to download the most recent revision of the total suspended solids (TSS) data product:
+```{r download-recent-tss}
+# By default, this function uses "newest" for version but can be set to an
+# integer indicating the version number (1, 2, etc.)
+tss_data <- download_parameters(parameters = "tss", version = "newest")
+
+names(tss_data)
+```
+
+The data are returned as an item within a list, and if multiple parameters are
+requested then they'll each be individual list items. Below we'll request both
+TSS and Secchi disk depth (SDD) products:
+```{r download-recent-tss-sdd}
+# Whatever value is provided to "version" will be used for all parameters that
+# are queried
+tss_sdd_data <- download_parameters(
+  parameters = c("tss", "sdd"),
+  version = "newest"
+)
+
+# One list item for each parameter requested
+names(tss_sdd_data)
+```
+
+Note that the datasets are large:
+```{r check-param-size}
+# TSS size
+format(object.size(tss_sdd_data$tss), "MB")
+
+# SDD size
+format(object.size(tss_sdd_data$sdd), "MB")
+```
+
+If you would like to pull out the data frames from the list to make using them
+easier, you can do it like this:
+```{r deconstruct-list}
+tss_df <- tss_sdd_data$tss
+
+sdd_df <- tss_sdd_data$sdd
+
+# Remove the list to save memory
+rm(tss_sdd_data)
+gc()
+```
+
+And finally, if you'd like to save the datasets permanently for use after this
+R session, you might do it like this:
+```{r save-param-data, eval=FALSE}
+write_feather(x = tss_df, path = "path/to/folder/of/choice")
+```
+
+Feather files are both time- and space-efficient ways to store data for use in R
+and other programming languages. (See, for example, [sections 5.4.2 and 5.4.3](https://csgillespie.github.io/efficientR/input-output.html) in Gillespie &
+Lovelace, 2021). You could also use a `.csv` or `.rds` format here, for example.
+
+
+

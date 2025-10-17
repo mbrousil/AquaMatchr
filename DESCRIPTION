@@ -13,5 +13,8 @@ Imports:
     tidyr
 Suggests: 
     EDIutils,
+    knitr,
     purrr,
-    readr
+    readr,
+    rmarkdown
+VignetteBuilder: knitr
