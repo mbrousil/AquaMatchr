@@ -57,7 +57,7 @@ construct_id <- function(identifier, version){
     # If something unexpected, say so:
   } else {
 
-    stop("Unexpected input to version argument. Please use 'newest' or a numeric value.")
+    stop("Unexpected input to version argument. Please use 'newest' or an integer value.")
 
   }
 
