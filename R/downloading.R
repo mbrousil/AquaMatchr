@@ -111,6 +111,11 @@ download_parameters <- function(parameters, version = "newest"){
     "tss",   2048,        "tss_harmonized_final"
   )
 
+  # Make sure parameters contains intended options
+  if(!all(parameters %in% unique(param_metadata$param))){
+    stop("The provided input for the parameters argument does not match the available options. Please check case and spelling.")
+  }
+
   # Keep what we need
   param_selection <- param_metadata %>%
     dplyr::filter(param %in% parameters)
