@@ -122,20 +122,20 @@ download_parameters <- function(parameters, version = "newest"){
 
   # For each param, read and save in list
   split(param_selection, f = param_selection$param) %>%
-    map(.x = .,
-        .f = ~{
-          # EDI package ID
-          param_id <- construct_id(identifier = .x$identifier, version = version)
+    purrr::map(.x = .,
+               .f = ~{
+                 # EDI package ID
+                 param_id <- construct_id(identifier = .x$identifier, version = version)
 
-          # EDI entity ID (specific file to download)
-          entity_id <- EDIutils::read_data_entity_names(packageId = param_id) %>%
-            dplyr::filter(entityName == .x$entity_name) %>%
-            dplyr::pull(entityId)
+                 # EDI entity ID (specific file to download)
+                 entity_id <- EDIutils::read_data_entity_names(packageId = param_id) %>%
+                   dplyr::filter(entityName == .x$entity_name) %>%
+                   dplyr::pull(entityId)
 
-          # Read in data as raw bytes
-          raw_bytes <- EDIutils::read_data_entity(packageId = param_id,
-                                                  entityId = entity_id)
-          # Parse
-          readr::read_csv(raw_bytes)
-        })
+                 # Read in data as raw bytes
+                 raw_bytes <- EDIutils::read_data_entity(packageId = param_id,
+                                                         entityId = entity_id)
+                 # Parse
+                 readr::read_csv(raw_bytes)
+               })
 }

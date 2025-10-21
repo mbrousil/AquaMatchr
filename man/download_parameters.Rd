@@ -15,7 +15,7 @@ Secchi disk depth, and "tss" for total suspended solids.}
 \item{version}{Either "newest" or an integer corresponding to the data package
 version to use. Note that in its current form, this function uses a single
 value for every parameter requested. So, if \code{c("chla", "doc", "sdd")} is provided
-to \code{parameters} and a 2 is provided to \code{version}, the second version of each
+to \code{parameters} and a \code{2} is provided to \code{version}, the second version of each
 dataset will be requested, whether or not it actually exists.}
 }
 \value{
