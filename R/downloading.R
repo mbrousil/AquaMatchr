@@ -139,3 +139,44 @@ download_parameters <- function(parameters, version = "newest"){
                  readr::read_csv(raw_bytes)
                })
 }
+
+
+#' Download RiverSR dataset from Zenodo
+#'
+#' @description
+#' A function to facilitate downloading of the RiverSR data product from Zenodo.
+#' It is mostly a wrapper around `zen4R::download_zenodo()`.
+#'
+#' @param save_path A string containing the path to the folder where the dataset
+#'  should be saved.
+#' @param timeout_length The number of seconds to allow for the download. Defaults
+#' to 2000 based on tests of the RiverSR dataset, but can be adjusted as needed.
+#'
+#' @returns The path to the downloaded file.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' download_RiverSR(save_path = "~/Downloads/")
+#' }
+download_RiverSR <- function(save_path, timeout_length = 2000){
+
+  # Warning to user
+  message(
+    "The size of this file is large (>13GB) so the download will take some time."
+  )
+
+  download_zenodo(path = save_path,
+                  doi = "10.5281/zenodo.4304567",
+                  files = "riverSR_usa_v1.1.feather",
+                  timeout = timeout_length)
+
+  # Confirm file saved and report back
+  out_file <- file.path(save_path, "riverSR_usa_v1.1.feather")
+
+  if(file.exists(out_file)){
+    return(out_file)
+  } else {
+    stop("Output file cannot be found.")
+  }
+}
