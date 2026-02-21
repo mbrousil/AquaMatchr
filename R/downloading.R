@@ -195,3 +195,165 @@ download_RiverSR <- function(save_path, timeout_length = 4000){
     stop("Output file cannot be found.")
   }
 }
+
+
+#' Ask user about redundant downloads
+#'
+#' If planned downloads already exist locally this function is used to prompt
+#' the user to decide (i.e., "yes"/"no") whether the download should continue
+#' and the existing files should be overwritten.
+#'
+#' @param algal_mask Logical. Indicates whether DSWE1 or DSWE1a was requested.
+#' @param which_sr String. Options are "LakeSR" or "SiteSR."
+ask_user <- function(algal_mask, which_sr) {
+
+  if(!(which_sr == "LakeSR" | which_sr == "SiteSR")){
+    stop("Input for which_sr argument is not valid. Must be LakeSR or SiteSR.")
+  }
+
+  algal_status <- if_else(
+    condition = algal_mask,
+    true = "DSWE1a",
+    false = "DSWE1"
+  )
+
+  # Text to show user
+  user_prompt <- cat(
+    "One or more files for the ", which_sr, " version ",
+    algal_status,
+    " appear to already exist in the download location.\n",
+    "Would you like to continue downloading and overwrite them? [yes/no]",
+    sep = ""
+  )
+
+  # Ask user if they want to continue & check for valid response
+  while (TRUE) {
+    user_input <- readline(prompt = user_prompt)
+    # Convert response to lower and no whitespace
+    user_input <- tolower(trimws(user_input))
+    if (user_input == "yes" || user_input == "no") {
+      return(user_input)
+    } else {
+      cat("Invalid input. Please enter 'yes' or 'no'.\n")
+    }
+  }
+}
+
+
+#' Download SiteSR dataset from EDI
+#'
+#' @description
+#' A function to facilitate downloading of the SiteSR data product from
+#' the Environmental Data Initiative (EDI).
+#'
+#' @param save_path A string containing the path to the folder where the dataset
+#' should be saved.
+#' @param algal_mask Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
+#' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
+#' @param version Either "newest" or an integer corresponding to the data package
+#' version to use.
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
+
+  # SiteSR EDI ID
+  site_sr_id <- construct_id(identifier = 2254, version = version)
+
+  # Filenames to be used for dswe1 and 1a, respectively:
+  dswe1_names <- c(
+    "siteSR_Landsat4_DSWE1_2025-06-06.feather",
+    "siteSR_Landsat5_DSWE1_2025-06-06.feather",
+    "siteSR_Landsat7_DSWE1_2025-06-06.feather",
+    "siteSR_Landsat8_DSWE1_2025-06-06.feather",
+    "siteSR_Landsat9_DSWE1_2025-06-06.feather"
+  )
+
+  dswe1a_names <- c(
+    "siteSR_Landsat4_DSWE1a_2025-06-06.feather",
+    "siteSR_Landsat5_DSWE1a_2025-06-06.feather",
+    "siteSR_Landsat7_DSWE1a_2025-06-06.feather",
+    "siteSR_Landsat8_DSWE1a_2025-06-06.feather",
+    "siteSR_Landsat9_DSWE1a_2025-06-06.feather"
+  )
+
+  # No algal mask (DWSE1)
+  if(!algal_mask){
+
+    # Check if any files with the standard names are already present in the save
+    # location:
+    if(any(file.exists(file.path(save_path, dswe1_names)))) {
+      user_decision <- ask_user(algal_mask = FALSE)
+
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
+    }
+
+    dl_entities <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
+      filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
+
+    # With algal mask (DSWE1a)
+  } else if(algal_mask){
+
+    # Check if any files with the standard names are already present in the save
+    # location:
+    if(any(file.exists(file.path(save_path, dswe1_names)))) {
+      user_decision <- ask_user(algal_mask = TRUE)
+
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
+    }
+
+    dl_entities <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
+      filter(grepl(pattern = "DSWE = 1a", x = entityName))
+  }
+
+  # For each param, read, message citation, and save in list
+  dl_list <- split(dl_entities, f = dl_entities$entityName) %>%
+    purrr::walk(.x = .,
+                .f = ~{
+                  print(.x$entityName)
+                  out_name <- switch(
+                    .x$entityName,
+                    "siteSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat4_DSWE1_2025-06-06.feather",
+                    "siteSR data from Landsat 4, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat4_DSWE1a_2025-06-06.feather",
+                    "siteSR data from Landsat 5, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat5_DSWE1_2025-06-06.feather",
+                    "siteSR data from Landsat 5, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat5_DSWE1a_2025-06-06.feather",
+                    "siteSR data from Landsat 7, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat7_DSWE1_2025-06-06.feather",
+                    "siteSR data from Landsat 7, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat7_DSWE1a_2025-06-06.feather",
+                    "siteSR data from Landsat 8, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat8_DSWE1_2025-06-06.feather",
+                    "siteSR data from Landsat 8, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat8_DSWE1a_2025-06-06.feather",
+                    "siteSR data from Landsat 9, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat9_DSWE1_2025-06-06.feather",
+                    "siteSR data from Landsat 9, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat9_DSWE1a_2025-06-06.feather"
+                  )
+                  print(out_name)
+                  # Read in data as raw bytes
+                  raw_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
+                                                          entityId = .x$entityId)
+                  # Parse
+                  temp_file <- arrow::read_feather(raw_bytes)
+
+                  arrow::write_feather(
+                    x = temp_file,
+                    sink = file.path(save_path, out_name)
+                  )
+                })
+
+  # Suggest citation
+  message(
+    "SiteSR recommended citation: ",
+    EDIutils::read_data_package_citation(packageId = site_sr_id)
+  )
+
+  return(dl_list)
+}
