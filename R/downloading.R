@@ -357,3 +357,122 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
 
   return(dl_list)
 }
+
+
+#' Download LakeSR dataset from EDI
+#'
+#' @description
+#' A function to facilitate downloading of the LakeSR data product from
+#' the Environmental Data Initiative (EDI).
+#'
+#' @param save_path A string containing the path to the folder where the dataset
+#' should be saved.
+#' @param algal_mask Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
+#' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
+#' @param version Either "newest" or an integer corresponding to the data package
+#' version to use.
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
+
+  # LakeSR EDI ID
+  lake_sr_id <- construct_id(identifier = 2114, version = version)
+
+  # Filenames to be used for dswe1 and 1a, respectively:
+  dswe1_names <- c(
+    "LakeSR_Landsat4_DSWE1_2025-06-04.feather",
+    "LakeSR_Landsat5_DSWE1_2025-06-04.feather",
+    "LakeSR_Landsat7_DSWE1_2025-06-04.feather",
+    "LakeSR_Landsat8_DSWE1_2025-06-04.feather",
+    "LakeSR_Landsat9_DSWE1_2025-06-04.feather"
+  )
+
+  dswe1a_names <- c(
+    "LakeSR_Landsat4_DSWE1a_2025-06-04.feather",
+    "LakeSR_Landsat5_DSWE1a_2025-06-04.feather",
+    "LakeSR_Landsat7_DSWE1a_2025-06-04.feather",
+    "LakeSR_Landsat8_DSWE1a_2025-06-04.feather",
+    "LakeSR_Landsat9_DSWE1a_2025-06-04.feather"
+  )
+
+  # No algal mask (DWSE1)
+  if(!algal_mask){
+
+    # Check if any files with the standard names are already present in the save
+    # location:
+    if(any(file.exists(file.path(save_path, dswe1_names)))) {
+      user_decision <- ask_user(algal_mask = FALSE)
+
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
+    }
+
+    dl_entities <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
+      filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
+
+    # With algal mask (DSWE1a)
+  } else if(algal_mask){
+
+    # Check if any files with the standard names are already present in the save
+    # location:
+    if(any(file.exists(file.path(save_path, dswe1_names)))) {
+      user_decision <- ask_user(algal_mask = TRUE)
+
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
+    }
+
+    dl_entities <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
+      filter(grepl(pattern = "DSWE = 1a", x = entityName))
+  }
+
+  # For each param, read, message citation, and save in list
+  dl_list <- split(dl_entities, f = dl_entities$entityName) %>%
+    purrr::walk(.x = .,
+                .f = ~{
+                  print(.x$entityName)
+                  out_name <- switch(
+                    .x$entityName,
+                    "LakeSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat4_DSWE1_2025-06-04.feather",
+                    "LakeSR data from Landsat 4, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat4_DSWE1a_2025-06-04.feather",
+                    "LakeSR data from Landsat 5, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat5_DSWE1_2025-06-04.feather",
+                    "LakeSR data from Landsat 5, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat5_DSWE1a_2025-06-04.feather",
+                    "LakeSR data from Landsat 7, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat7_DSWE1_2025-06-04.feather",
+                    "LakeSR data from Landsat 7, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat7_DSWE1a_2025-06-04.feather",
+                    "LakeSR data from Landsat 8, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat8_DSWE1_2025-06-04.feather",
+                    "LakeSR data from Landsat 8, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat8_DSWE1a_2025-06-04.feather",
+                    "LakeSR data from Landsat 9, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat9_DSWE1_2025-06-04.feather",
+                    "LakeSR data from Landsat 9, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat9_DSWE1a_2025-06-04.feather"
+                  )
+                  print(out_name)
+                  # Read in data as raw bytes
+                  raw_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
+                                                          entityId = .x$entityId)
+                  # Parse
+                  temp_file <- arrow::read_feather(raw_bytes)
+
+                  arrow::write_feather(
+                    x = temp_file,
+                    sink = file.path(save_path, out_name)
+                  )
+                })
+
+  # Suggest citation
+  message(
+    "LakeSR recommended citation: ",
+    EDIutils::read_data_package_citation(packageId = lake_sr_id)
+  )
+
+  return(dl_list)
+}
