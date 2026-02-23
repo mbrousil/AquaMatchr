@@ -285,7 +285,7 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
     # Check if any files with the standard names are already present in the save
     # location:
     if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = FALSE)
+      user_decision <- ask_user(algal_mask = FALSE, which_sr = "SiteSR")
 
       # Act on input
       if (user_decision == "yes") {
@@ -304,7 +304,7 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
     # Check if any files with the standard names are already present in the save
     # location:
     if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = TRUE)
+      user_decision <- ask_user(algal_mask = TRUE, which_sr = "SiteSR")
 
       # Act on input
       if (user_decision == "yes") {
@@ -404,7 +404,7 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
     # Check if any files with the standard names are already present in the save
     # location:
     if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = FALSE)
+      user_decision <- ask_user(algal_mask = FALSE, which_sr = "LakeSR")
 
       # Act on input
       if (user_decision == "yes") {
@@ -423,7 +423,7 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
     # Check if any files with the standard names are already present in the save
     # location:
     if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = TRUE)
+      user_decision <- ask_user(algal_mask = TRUE, which_sr = "LakeSR")
 
       # Act on input
       if (user_decision == "yes") {
@@ -467,6 +467,9 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                     sink = file.path(save_path, out_name)
                   )
                 })
+
+  # Download sites list
+
 
   # Suggest citation
   message(
