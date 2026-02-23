@@ -204,39 +204,67 @@ download_RiverSR <- function(save_path, timeout_length = 4000){
 #' and the existing files should be overwritten.
 #'
 #' @param algal_mask Logical. Indicates whether DSWE1 or DSWE1a was requested.
-#' @param which_sr String. Options are "LakeSR" or "SiteSR."
-ask_user <- function(algal_mask, which_sr) {
+#' @param which_sr String. Options are "LakeSR", "SiteSR", or "generic". Generic
+#' indicates that the function is being used for something other than the main
+#' SiteSR or LakeSR data and allows custom messaging.
+ask_user <- function(algal_mask, which_sr, file_message) {
 
-  if(!(which_sr == "LakeSR" | which_sr == "SiteSR")){
-    stop("Input for which_sr argument is not valid. Must be LakeSR or SiteSR.")
+  if(!(which_sr == "LakeSR" | which_sr == "SiteSR" | which_sr == "generic")){
+    stop("Input for which_sr argument is not valid. Must be 'LakeSR', 'SiteSR', or 'generic'.")
   }
 
-  algal_status <- if_else(
-    condition = algal_mask,
-    true = "DSWE1a",
-    false = "DSWE1"
-  )
+  # LakeSR / SiteSR functionality
+  if(which_sr %in% c("LakeSR", "SiteSR")){
+    algal_status <- if_else(
+      condition = algal_mask,
+      true = "DSWE1a",
+      false = "DSWE1"
+    )
 
-  # Text to show user
-  user_prompt <- cat(
-    "One or more files for the ", which_sr, " version ",
-    algal_status,
-    " appear to already exist in the download location.\n",
-    "Would you like to continue downloading and overwrite them? [yes/no]",
-    sep = ""
-  )
+    # Text to show user
+    user_prompt <- cat(
+      "One or more files for the ", which_sr, " version ",
+      algal_status,
+      " appear to already exist in the download location.\n",
+      "Would you like to continue downloading and overwrite them? [yes/no]",
+      sep = ""
+    )
 
-  # Ask user if they want to continue & check for valid response
-  while (TRUE) {
-    user_input <- readline(prompt = user_prompt)
-    # Convert response to lower and no whitespace
-    user_input <- tolower(trimws(user_input))
-    if (user_input == "yes" || user_input == "no") {
-      return(user_input)
-    } else {
-      cat("Invalid input. Please enter 'yes' or 'no'.\n")
+    # Ask user if they want to continue & check for valid response
+    while (TRUE) {
+      user_input <- readline(prompt = user_prompt)
+      # Convert response to lower and no whitespace
+      user_input <- tolower(trimws(user_input))
+      if (user_input == "yes" || user_input == "no") {
+        return(user_input)
+      } else {
+        cat("Invalid input. Please enter 'yes' or 'no'.\n")
+      }
     }
   }
+
+  # Generic functionality
+  if(which_sr == "generic"){
+    # Text to show user
+    user_prompt <- cat(
+      "The ", file_message, " file appears to already exist in the download location.\n",
+      "Would you like to continue downloading and overwrite it? [yes/no]",
+      sep = ""
+    )
+
+    # Ask user if they want to continue & check for valid response
+    while (TRUE) {
+      user_input <- readline(prompt = user_prompt)
+      # Convert response to lower and no whitespace
+      user_input <- tolower(trimws(user_input))
+      if (user_input == "yes" || user_input == "no") {
+        return(user_input)
+      } else {
+        cat("Invalid input. Please enter 'yes' or 'no'.\n")
+      }
+    }
+  }
+
 }
 
 
@@ -318,11 +346,12 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
       filter(grepl(pattern = "DSWE = 1a", x = entityName))
   }
 
+  message("This is a series of large downloads. It will take several minutes.")
+
   # For each param, read, message citation, and save in list
   dl_list <- split(dl_entities, f = dl_entities$entityName) %>%
     purrr::walk(.x = .,
                 .f = ~{
-                  print(.x$entityName)
                   out_name <- switch(
                     .x$entityName,
                     "siteSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat4_DSWE1_2025-06-06.feather",
@@ -336,7 +365,7 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                     "siteSR data from Landsat 9, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat9_DSWE1_2025-06-06.feather",
                     "siteSR data from Landsat 9, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat9_DSWE1a_2025-06-06.feather"
                   )
-                  print(out_name)
+
                   # Read in data as raw bytes
                   raw_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
                                                           entityId = .x$entityId)
@@ -347,7 +376,58 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                     x = temp_file,
                     sink = file.path(save_path, out_name)
                   )
+
+                  message(
+                    "Downloaded ",
+                    .x$entityName,
+                    " as ",
+                    out_name,
+                    "."
+                  )
                 })
+
+
+  # Check if a site info file with the standard name is already present in the save
+  # location:
+  sites_filename <- "siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
+  sites_out_name <- file.path(save_path, sites_filename)
+  if(any(file.exists(sites_out_name))) {
+    user_decision <- ask_user(algal_mask = FALSE,
+                              which_sr = "generic",
+                              file_message = "SiteSR site information")
+
+    # Act on input
+    if (user_decision == "yes") {
+      message("Proceeding with download.")
+    } else {
+      stop("Cancelled by user.", call. = FALSE)
+    }
+
+    dl_sites <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
+      filter(entityName == "siteSR sites list") %>%
+      pull(entityId)
+
+    # Read in data as raw bytes
+    raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
+                                                 entityId = dl_sites)
+    # Parse
+    suppressMessages({
+      temp_site_file <- readr::read_csv(raw_site_bytes)
+    })
+    readr::write_csv(
+      x = temp_site_file,
+      file = sites_out_name
+    )
+
+    message(
+      "Downloaded siteSR sites list as ",
+      sites_filename,
+      "."
+    )
+
+
+  }
+
 
   # Suggest citation
   message(
@@ -355,7 +435,6 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
     EDIutils::read_data_package_citation(packageId = site_sr_id)
   )
 
-  return(dl_list)
 }
 
 
@@ -436,6 +515,8 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
     dl_entities <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
       filter(grepl(pattern = "DSWE = 1a", x = entityName))
   }
+
+  message("This is a series of large downloads. It will take several minutes.")
 
   # For each param, read, message citation, and save in list
   dl_list <- split(dl_entities, f = dl_entities$entityName) %>%
