@@ -280,12 +280,15 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
 #' @param version Either "newest" or an integer corresponding to the data package
 #' version to use.
+#' @param ask Logical. Should the user be asked before downloading and overwriting
+#' SiteSR files that already exist locally?
 #'
 #' @returns
 #' @export
 #'
 #' @examples
-download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
+download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest",
+                            ask = TRUE){
 
   # SiteSR EDI ID
   site_sr_id <- construct_id(identifier = 2254, version = version)
@@ -310,38 +313,42 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
   # No algal mask (DWSE1)
   if(!algal_mask){
 
-    # Check if any files with the standard names are already present in the save
-    # location:
-    if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = FALSE, which_sr = "SiteSR")
+    if(ask == TRUE){
+      # Check if any files with the standard names are already present in the save
+      # location:
+      if(any(file.exists(file.path(save_path, dswe1_names)))) {
+        user_decision <- ask_user(algal_mask = FALSE, which_sr = "SiteSR")
 
-      # Act on input
-      if (user_decision == "yes") {
-        message("Proceeding with download.")
-      } else {
-        stop("Cancelled by user.", call. = FALSE)
+        # Act on input
+        if (user_decision == "yes") {
+          message("Proceeding with download.")
+        } else {
+          stop("Cancelled by user.", call. = FALSE)
+        }
       }
     }
-
+    # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
       filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
 
     # With algal mask (DSWE1a)
   } else if(algal_mask){
 
-    # Check if any files with the standard names are already present in the save
-    # location:
-    if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = TRUE, which_sr = "SiteSR")
+    if(ask == TRUE){
+      # Check if any files with the standard names are already present in the save
+      # location:
+      if(any(file.exists(file.path(save_path, dswe1_names)))) {
+        user_decision <- ask_user(algal_mask = TRUE, which_sr = "SiteSR")
 
-      # Act on input
-      if (user_decision == "yes") {
-        message("Proceeding with download.")
-      } else {
-        stop("Cancelled by user.", call. = FALSE)
+        # Act on input
+        if (user_decision == "yes") {
+          message("Proceeding with download.")
+        } else {
+          stop("Cancelled by user.", call. = FALSE)
+        }
       }
     }
-
+    # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
       filter(grepl(pattern = "DSWE = 1a", x = entityName))
   }
@@ -387,85 +394,88 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                 })
 
   # Download site list
+  if(ask == TRUE){
+    # Check if a site info file with the standard name is already present in the save
+    # location:
+    sites_filename <- "siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
+    sites_out_name <- file.path(save_path, sites_filename)
+    if(any(file.exists(sites_out_name))) {
+      user_decision <- ask_user(algal_mask = FALSE,
+                                which_sr = "generic",
+                                file_message = "SiteSR site information")
 
-  # Check if a site info file with the standard name is already present in the save
-  # location:
-  sites_filename <- "siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
-  sites_out_name <- file.path(save_path, sites_filename)
-  if(any(file.exists(sites_out_name))) {
-    user_decision <- ask_user(algal_mask = FALSE,
-                              which_sr = "generic",
-                              file_message = "SiteSR site information")
-
-    # Act on input
-    if (user_decision == "yes") {
-      message("Proceeding with download.")
-    } else {
-      stop("Cancelled by user.", call. = FALSE)
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
     }
-
-    dl_sites <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
-      filter(entityName == "siteSR sites list") %>%
-      pull(entityId)
-
-    # Read in data as raw bytes
-    raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
-                                                 entityId = dl_sites)
-    # Parse
-    suppressMessages({
-      temp_site_file <- readr::read_csv(raw_site_bytes)
-    })
-    readr::write_csv(
-      x = temp_site_file,
-      file = sites_out_name
-    )
-
-    message(
-      "Downloaded siteSR sites list as ",
-      sites_filename,
-      "."
-    )
   }
 
-  # Check if a handoff coefficient file with the standard name is already present in the save
-  # location:
-  # (Note that handoffs are part of the LakeSR product, not SiteSR)
-  handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
-  handoff_out_name <- file.path(save_path, handoff_filename)
-  if(any(file.exists(handoff_out_name))) {
-    user_decision <- ask_user(algal_mask = FALSE,
-                              which_sr = "generic",
-                              file_message = "handoff coefficient")
+  dl_sites <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
+    filter(entityName == "siteSR sites list") %>%
+    pull(entityId)
 
-    # Act on input
-    if (user_decision == "yes") {
-      message("Proceeding with download.")
-    } else {
-      stop("Cancelled by user.", call. = FALSE)
+  # Read in data as raw bytes
+  raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
+                                               entityId = dl_sites)
+  # Parse
+  suppressMessages({
+    temp_site_file <- readr::read_csv(raw_site_bytes)
+  })
+  readr::write_csv(
+    x = temp_site_file,
+    file = sites_out_name
+  )
+
+  message(
+    "Downloaded siteSR sites list as ",
+    sites_filename,
+    "."
+  )
+
+  # Download handoffs
+  if(ask == TRUE){
+    # Check if a handoff coefficient file with the standard name is already present
+    # in the save location:
+    # (Note that handoffs are part of the LakeSR product, not SiteSR)
+    handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+    handoff_out_name <- file.path(save_path, handoff_filename)
+    if(any(file.exists(handoff_out_name))) {
+      user_decision <- ask_user(algal_mask = FALSE,
+                                which_sr = "generic",
+                                file_message = "handoff coefficient")
+
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
     }
-
-    dl_handoff <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
-      filter(entityName == "lakeSR handoff coefficients") %>%
-      pull(entityId)
-
-    # Read in data as raw bytes
-    raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
-                                                 entityId = dl_handoff)
-    # Parse
-    suppressMessages({
-      temp_handoff_file <- readr::read_csv(raw_site_bytes)
-    })
-    readr::write_csv(
-      x = temp_handoff_file,
-      file = handoff_out_name
-    )
-
-    message(
-      "Downloaded handoff coefficients as ",
-      handoff_filename,
-      "."
-    )
   }
+  dl_handoff <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
+    filter(entityName == "lakeSR handoff coefficients") %>%
+    pull(entityId)
+
+  # Read in data as raw bytes
+  raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
+                                               entityId = dl_handoff)
+  # Parse
+  suppressMessages({
+    temp_handoff_file <- readr::read_csv(raw_site_bytes)
+  })
+  readr::write_csv(
+    x = temp_handoff_file,
+    file = handoff_out_name
+  )
+
+  message(
+    "Downloaded handoff coefficients as ",
+    handoff_filename,
+    "."
+  )
 
   # Suggest citation
   message(
@@ -488,6 +498,8 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
 #' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
 #' @param version Either "newest" or an integer corresponding to the data package
 #' version to use.
+#' @param ask Logical. Should the user be asked before downloading and overwriting
+#' SiteSR files that already exist locally?
 #'
 #' @returns
 #' @export
@@ -518,38 +530,42 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
   # No algal mask (DWSE1)
   if(!algal_mask){
 
-    # Check if any files with the standard names are already present in the save
-    # location:
-    if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = FALSE, which_sr = "LakeSR")
+    if(ask == TRUE){
+      # Check if any files with the standard names are already present in the save
+      # location:
+      if(any(file.exists(file.path(save_path, dswe1_names)))) {
+        user_decision <- ask_user(algal_mask = FALSE, which_sr = "LakeSR")
 
-      # Act on input
-      if (user_decision == "yes") {
-        message("Proceeding with download.")
-      } else {
-        stop("Cancelled by user.", call. = FALSE)
+        # Act on input
+        if (user_decision == "yes") {
+          message("Proceeding with download.")
+        } else {
+          stop("Cancelled by user.", call. = FALSE)
+        }
       }
     }
-
+    # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
       filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
 
     # With algal mask (DSWE1a)
   } else if(algal_mask){
 
-    # Check if any files with the standard names are already present in the save
-    # location:
-    if(any(file.exists(file.path(save_path, dswe1_names)))) {
-      user_decision <- ask_user(algal_mask = TRUE, which_sr = "LakeSR")
+    if(ask == TRUE){
+      # Check if any files with the standard names are already present in the save
+      # location:
+      if(any(file.exists(file.path(save_path, dswe1_names)))) {
+        user_decision <- ask_user(algal_mask = TRUE, which_sr = "LakeSR")
 
-      # Act on input
-      if (user_decision == "yes") {
-        message("Proceeding with download.")
-      } else {
-        stop("Cancelled by user.", call. = FALSE)
+        # Act on input
+        if (user_decision == "yes") {
+          message("Proceeding with download.")
+        } else {
+          stop("Cancelled by user.", call. = FALSE)
+        }
       }
     }
-
+    # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
       filter(grepl(pattern = "DSWE = 1a", x = entityName))
   }
@@ -588,84 +604,87 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                 })
 
   # Download poi list
+  if(ask == TRUE){
+    # Check if a lake info file with the standard name is already present in the
+    # save location:
+    lakes_filename <- "lakeSR_poi_with_flags_2025-02-12.csv"
+    lakes_out_name <- file.path(save_path, lakes_filename)
+    if(any(file.exists(lakes_out_name))) {
+      user_decision <- ask_user(algal_mask = FALSE,
+                                which_sr = "generic",
+                                file_message = "LakeSR lake information")
 
-  # Check if a lake info file with the standard name is already present in the
-  # save location:
-  lakes_filename <- "lakeSR_poi_with_flags_2025-02-12.csv"
-  lakes_out_name <- file.path(save_path, lakes_filename)
-  if(any(file.exists(lakes_out_name))) {
-    user_decision <- ask_user(algal_mask = FALSE,
-                              which_sr = "generic",
-                              file_message = "LakeSR lake information")
-
-    # Act on input
-    if (user_decision == "yes") {
-      message("Proceeding with download.")
-    } else {
-      stop("Cancelled by user.", call. = FALSE)
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
     }
-
-    dl_lakes <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
-      filter(entityName == "lakeSR sites list") %>%
-      pull(entityId)
-
-    # Read in data as raw bytes
-    raw_lake_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
-                                                 entityId = dl_lakes)
-    # Parse
-    suppressMessages({
-      temp_lake_file <- readr::read_csv(raw_lake_bytes)
-    })
-    readr::write_csv(
-      x = temp_lake_file,
-      file = lakes_out_name
-    )
-
-    message(
-      "Downloaded lakeSR sites list as ",
-      lakes_filename,
-      "."
-    )
   }
+  dl_lakes <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
+    filter(entityName == "lakeSR sites list") %>%
+    pull(entityId)
 
-  # Check if a handoff coefficient file with the standard name is already present
-  # in the save location:
-  handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
-  handoff_out_name <- file.path(save_path, handoff_filename)
-  if(any(file.exists(handoff_out_name))) {
-    user_decision <- ask_user(algal_mask = FALSE,
-                              which_sr = "generic",
-                              file_message = "handoff coefficient")
+  # Read in data as raw bytes
+  raw_lake_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
+                                               entityId = dl_lakes)
+  # Parse
+  suppressMessages({
+    temp_lake_file <- readr::read_csv(raw_lake_bytes)
+  })
+  readr::write_csv(
+    x = temp_lake_file,
+    file = lakes_out_name
+  )
 
-    # Act on input
-    if (user_decision == "yes") {
-      message("Proceeding with download.")
-    } else {
-      stop("Cancelled by user.", call. = FALSE)
+  message(
+    "Downloaded lakeSR sites list as ",
+    lakes_filename,
+    "."
+  )
+
+
+  # Download handoffs
+  if(ask == TRUE){
+    # Check if a handoff coefficient file with the standard name is already present
+    # in the save location:
+    handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+    handoff_out_name <- file.path(save_path, handoff_filename)
+    if(any(file.exists(handoff_out_name))) {
+      user_decision <- ask_user(algal_mask = FALSE,
+                                which_sr = "generic",
+                                file_message = "handoff coefficient")
+
+      # Act on input
+      if (user_decision == "yes") {
+        message("Proceeding with download.")
+      } else {
+        stop("Cancelled by user.", call. = FALSE)
+      }
     }
-
-    dl_handoff <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
-      filter(entityName == "lakeSR handoff coefficients") %>%
-      pull(entityId)
-
-    # Read in data as raw bytes
-    raw_site_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
-                                                 entityId = dl_handoff)
-    # Parse
-    suppressMessages({
-      temp_handoff_file <- readr::read_csv(raw_site_bytes)
-    })
-    readr::write_csv(
-      x = temp_handoff_file,
-      file = handoff_out_name
-    )
-
-    message(
-      "Downloaded handoff coefficients as ",
-      handoff_filename,
-      "."
-    )
   }
+  dl_handoff <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
+    filter(entityName == "lakeSR handoff coefficients") %>%
+    pull(entityId)
+
+  # Read in data as raw bytes
+  raw_site_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
+                                               entityId = dl_handoff)
+  # Parse
+  suppressMessages({
+    temp_handoff_file <- readr::read_csv(raw_site_bytes)
+  })
+  readr::write_csv(
+    x = temp_handoff_file,
+    file = handoff_out_name
+  )
+
+  message(
+    "Downloaded handoff coefficients as ",
+    handoff_filename,
+    "."
+  )
 
   # Suggest citation
   message(
