@@ -386,6 +386,7 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                   )
                 })
 
+  # Download site list
 
   # Check if a site info file with the standard name is already present in the save
   # location:
@@ -424,10 +425,47 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest"){
       sites_filename,
       "."
     )
-
-
   }
 
+  # Check if a handoff coefficient file with the standard name is already present in the save
+  # location:
+  # (Note that handoffs are part of the LakeSR product, not SiteSR)
+  handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+  handoff_out_name <- file.path(save_path, handoff_filename)
+  if(any(file.exists(handoff_out_name))) {
+    user_decision <- ask_user(algal_mask = FALSE,
+                              which_sr = "generic",
+                              file_message = "handoff coefficient")
+
+    # Act on input
+    if (user_decision == "yes") {
+      message("Proceeding with download.")
+    } else {
+      stop("Cancelled by user.", call. = FALSE)
+    }
+
+    dl_handoff <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
+      filter(entityName == "lakeSR handoff coefficients") %>%
+      pull(entityId)
+
+    # Read in data as raw bytes
+    raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
+                                                 entityId = dl_handoff)
+    # Parse
+    suppressMessages({
+      temp_handoff_file <- readr::read_csv(raw_site_bytes)
+    })
+    readr::write_csv(
+      x = temp_handoff_file,
+      file = handoff_out_name
+    )
+
+    message(
+      "Downloaded handoff coefficients as ",
+      handoff_filename,
+      "."
+    )
+  }
 
   # Suggest citation
   message(
@@ -549,9 +587,10 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                   )
                 })
 
-  # Download sites list
-  # Check if a lake info file with the standard name is already present in the save
-  # location:
+  # Download poi list
+
+  # Check if a lake info file with the standard name is already present in the
+  # save location:
   lakes_filename <- "lakeSR_poi_with_flags_2025-02-12.csv"
   lakes_out_name <- file.path(save_path, lakes_filename)
   if(any(file.exists(lakes_out_name))) {
@@ -587,13 +626,50 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
       lakes_filename,
       "."
     )
-
-    # Suggest citation
-    message(
-      "LakeSR recommended citation: ",
-      EDIutils::read_data_package_citation(packageId = lake_sr_id)
-    )
-
   }
 
+  # Check if a handoff coefficient file with the standard name is already present
+  # in the save location:
+  handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+  handoff_out_name <- file.path(save_path, handoff_filename)
+  if(any(file.exists(handoff_out_name))) {
+    user_decision <- ask_user(algal_mask = FALSE,
+                              which_sr = "generic",
+                              file_message = "handoff coefficient")
+
+    # Act on input
+    if (user_decision == "yes") {
+      message("Proceeding with download.")
+    } else {
+      stop("Cancelled by user.", call. = FALSE)
+    }
+
+    dl_handoff <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
+      filter(entityName == "lakeSR handoff coefficients") %>%
+      pull(entityId)
+
+    # Read in data as raw bytes
+    raw_site_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
+                                                 entityId = dl_handoff)
+    # Parse
+    suppressMessages({
+      temp_handoff_file <- readr::read_csv(raw_site_bytes)
+    })
+    readr::write_csv(
+      x = temp_handoff_file,
+      file = handoff_out_name
+    )
+
+    message(
+      "Downloaded handoff coefficients as ",
+      handoff_filename,
+      "."
+    )
+  }
+
+  # Suggest citation
+  message(
+    "LakeSR recommended citation: ",
+    EDIutils::read_data_package_citation(packageId = lake_sr_id)
+  )
 }
