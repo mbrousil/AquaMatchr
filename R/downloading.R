@@ -550,13 +550,50 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                 })
 
   # Download sites list
+  # Check if a lake info file with the standard name is already present in the save
+  # location:
+  lakes_filename <- "lakeSR_poi_with_flags_2025-02-12.csv"
+  lakes_out_name <- file.path(save_path, lakes_filename)
+  if(any(file.exists(lakes_out_name))) {
+    user_decision <- ask_user(algal_mask = FALSE,
+                              which_sr = "generic",
+                              file_message = "LakeSR lake information")
 
+    # Act on input
+    if (user_decision == "yes") {
+      message("Proceeding with download.")
+    } else {
+      stop("Cancelled by user.", call. = FALSE)
+    }
 
-  # Suggest citation
-  message(
-    "LakeSR recommended citation: ",
-    EDIutils::read_data_package_citation(packageId = lake_sr_id)
-  )
+    dl_lakes <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
+      filter(entityName == "lakeSR sites list") %>%
+      pull(entityId)
 
-  return(dl_list)
+    # Read in data as raw bytes
+    raw_lake_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
+                                                 entityId = dl_lakes)
+    # Parse
+    suppressMessages({
+      temp_lake_file <- readr::read_csv(raw_lake_bytes)
+    })
+    readr::write_csv(
+      x = temp_lake_file,
+      file = lakes_out_name
+    )
+
+    message(
+      "Downloaded lakeSR sites list as ",
+      lakes_filename,
+      "."
+    )
+
+    # Suggest citation
+    message(
+      "LakeSR recommended citation: ",
+      EDIutils::read_data_package_citation(packageId = lake_sr_id)
+    )
+
+  }
+
 }
