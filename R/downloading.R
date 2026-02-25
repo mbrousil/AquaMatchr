@@ -158,6 +158,10 @@ download_parameters <- function(parameters, version = "newest"){
 #' A function to facilitate downloading of the RiverSR data product from Zenodo.
 #' It is mostly a wrapper around `zen4R::download_zenodo()`.
 #'
+#' @note
+#' The downloaded file will be large (>13 GB in size), so users will need to
+#' make sure that they have appropriate available storage for the file.
+#'
 #' @param save_path A string containing the path to the folder where the dataset
 #'  should be saved.
 #' @param timeout_length The number of seconds to allow for the download. Defaults
@@ -274,6 +278,20 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #' A function to facilitate downloading of the SiteSR data product from
 #' the Environmental Data Initiative (EDI).
 #'
+#' @details
+#' Downloads the following components of the [SiteSR dataset](https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2254.1):
+#' * lakeSR handoff coefficients (.csv)
+#' * siteSR sites list (.csv)
+#' * siteSR data from Landsat 4 (.feather)
+#' * siteSR data from Landsat 5 (.feather)
+#' * siteSR data from Landsat 7 (.feather)
+#' * siteSR data from Landsat 8 (.feather)
+#' * siteSR data from Landsat 9 (.feather)
+#'
+#' @note
+#' The downloaded datasets will be large (several GB in size in total), so users
+#' will need to make sure that they have appropriate available storage for the files.
+#'
 #' @param save_path A string containing the path to the folder where the dataset
 #' should be saved.
 #' @param algal_mask Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
@@ -337,7 +355,7 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest",
     if(ask == TRUE){
       # Check if any files with the standard names are already present in the save
       # location:
-      if(any(file.exists(file.path(save_path, dswe1_names)))) {
+      if(any(file.exists(file.path(save_path, dswe1a_names)))) {
         user_decision <- ask_user(algal_mask = TRUE, which_sr = "SiteSR")
 
         # Act on input
@@ -394,16 +412,16 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest",
                 })
 
   # Download site list
+  # Check if a site info file with the standard name is already present in the save
+  # location:
+  sites_filename <- "siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
+  sites_out_name <- file.path(save_path, sites_filename)
+
   if(ask == TRUE){
-    # Check if a site info file with the standard name is already present in the save
-    # location:
-    sites_filename <- "siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
-    sites_out_name <- file.path(save_path, sites_filename)
     if(any(file.exists(sites_out_name))) {
       user_decision <- ask_user(algal_mask = FALSE,
                                 which_sr = "generic",
                                 file_message = "SiteSR site information")
-
       # Act on input
       if (user_decision == "yes") {
         message("Proceeding with download.")
@@ -436,12 +454,13 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest",
   )
 
   # Download handoffs
+  handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+  handoff_out_name <- file.path(save_path, handoff_filename)
+
   if(ask == TRUE){
     # Check if a handoff coefficient file with the standard name is already present
     # in the save location:
     # (Note that handoffs are part of the LakeSR product, not SiteSR)
-    handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
-    handoff_out_name <- file.path(save_path, handoff_filename)
     if(any(file.exists(handoff_out_name))) {
       user_decision <- ask_user(algal_mask = FALSE,
                                 which_sr = "generic",
@@ -492,6 +511,20 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest",
 #' A function to facilitate downloading of the LakeSR data product from
 #' the Environmental Data Initiative (EDI).
 #'
+#' @details
+#' Downloads the following components of the [LakeSR dataset](https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2114.1):
+#' * lakeSR handoff coefficients (.csv)
+#' * lakeSR sites list (.csv)
+#' * lakeSR data from Landsat 4 (.feather)
+#' * lakeSR data from Landsat 5 (.feather)
+#' * lakeSR data from Landsat 7 (.feather)
+#' * lakeSR data from Landsat 8 (.feather)
+#' * lakeSR data from Landsat 9 (.feather)
+#'
+#' @note
+#' The downloaded datasets will be large (several GB in size in total), so users
+#' will need to make sure that they have appropriate available storage for the files.
+#'
 #' @param save_path A string containing the path to the folder where the dataset
 #' should be saved.
 #' @param algal_mask Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
@@ -505,7 +538,8 @@ download_SiteSR <- function(save_path, algal_mask = FALSE, version = "newest",
 #' @export
 #'
 #' @examples
-download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
+download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
+                            ask = TRUE){
 
   # LakeSR EDI ID
   lake_sr_id <- construct_id(identifier = 2114, version = version)
@@ -554,7 +588,7 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
     if(ask == TRUE){
       # Check if any files with the standard names are already present in the save
       # location:
-      if(any(file.exists(file.path(save_path, dswe1_names)))) {
+      if(any(file.exists(file.path(save_path, dswe1a_names)))) {
         user_decision <- ask_user(algal_mask = TRUE, which_sr = "LakeSR")
 
         # Act on input
@@ -576,21 +610,19 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
   dl_list <- split(dl_entities, f = dl_entities$entityName) %>%
     purrr::walk(.x = .,
                 .f = ~{
-                  print(.x$entityName)
                   out_name <- switch(
                     .x$entityName,
-                    "LakeSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat4_DSWE1_2025-06-04.feather",
-                    "LakeSR data from Landsat 4, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat4_DSWE1a_2025-06-04.feather",
-                    "LakeSR data from Landsat 5, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat5_DSWE1_2025-06-04.feather",
-                    "LakeSR data from Landsat 5, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat5_DSWE1a_2025-06-04.feather",
-                    "LakeSR data from Landsat 7, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat7_DSWE1_2025-06-04.feather",
-                    "LakeSR data from Landsat 7, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat7_DSWE1a_2025-06-04.feather",
-                    "LakeSR data from Landsat 8, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat8_DSWE1_2025-06-04.feather",
-                    "LakeSR data from Landsat 8, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat8_DSWE1a_2025-06-04.feather",
-                    "LakeSR data from Landsat 9, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat9_DSWE1_2025-06-04.feather",
-                    "LakeSR data from Landsat 9, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat9_DSWE1a_2025-06-04.feather"
+                    "lakeSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat4_DSWE1_2025-06-04.feather",
+                    "lakeSR data from Landsat 4, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat4_DSWE1a_2025-06-04.feather",
+                    "lakeSR data from Landsat 5, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat5_DSWE1_2025-06-04.feather",
+                    "lakeSR data from Landsat 5, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat5_DSWE1a_2025-06-04.feather",
+                    "lakeSR data from Landsat 7, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat7_DSWE1_2025-06-04.feather",
+                    "lakeSR data from Landsat 7, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat7_DSWE1a_2025-06-04.feather",
+                    "lakeSR data from Landsat 8, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat8_DSWE1_2025-06-04.feather",
+                    "lakeSR data from Landsat 8, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat8_DSWE1a_2025-06-04.feather",
+                    "lakeSR data from Landsat 9, DSWE filter for confident water (DSWE = 1)" = "LakeSR_Landsat9_DSWE1_2025-06-04.feather",
+                    "lakeSR data from Landsat 9, DSWE filter for confident water and algal mask (DSWE = 1a)" = "LakeSR_Landsat9_DSWE1a_2025-06-04.feather"
                   )
-                  print(out_name)
                   # Read in data as raw bytes
                   raw_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
                                                           entityId = .x$entityId)
@@ -601,14 +633,23 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
                     x = temp_file,
                     sink = file.path(save_path, out_name)
                   )
+
+                  message(
+                    "Downloaded ",
+                    .x$entityName,
+                    " as ",
+                    out_name,
+                    "."
+                  )
                 })
 
   # Download poi list
+  lakes_filename <- "lakeSR_poi_with_flags_2025-02-12.csv"
+  lakes_out_name <- file.path(save_path, lakes_filename)
+
   if(ask == TRUE){
     # Check if a lake info file with the standard name is already present in the
     # save location:
-    lakes_filename <- "lakeSR_poi_with_flags_2025-02-12.csv"
-    lakes_out_name <- file.path(save_path, lakes_filename)
     if(any(file.exists(lakes_out_name))) {
       user_decision <- ask_user(algal_mask = FALSE,
                                 which_sr = "generic",
@@ -646,11 +687,12 @@ download_LakeSR <- function(save_path, algal_mask = FALSE, version = "newest"){
 
 
   # Download handoffs
+  handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+  handoff_out_name <- file.path(save_path, handoff_filename)
+
   if(ask == TRUE){
     # Check if a handoff coefficient file with the standard name is already present
     # in the save location:
-    handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
-    handoff_out_name <- file.path(save_path, handoff_filename)
     if(any(file.exists(handoff_out_name))) {
       user_decision <- ask_user(algal_mask = FALSE,
                                 which_sr = "generic",
