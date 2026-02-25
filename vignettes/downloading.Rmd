@@ -14,7 +14,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-A primary use case for the `{AquaMatchr}` package is to facilitate downloading of  [AquaMatch](https://aquasat.github.io/AquaMatch_documentation/), [LakeSR and SiteSR](https://aquasat.github.io/AquaMatch_lakeSR/), and [RiverSR](https://zenodo.org/records/4304567) data products. These datasets are hosted in different locations and so the functions provided within `{AquaMatchr}` to retrieve them vary. This vignette walks through how `{AquaMatchr}` functions are used to do this. Note that you are free to do this manually by visiting the data repositories directly, but the functions in this package are designed to make the process simpler to do entirely within R.
+A primary use case for the `{AquaMatchr}` package is to facilitate downloading of  [AquaMatch](https://aquasat.github.io/AquaMatch_documentation/), [lakeSR and siteSR](https://aquasat.github.io/AquaMatch_lakeSR/), and [RiverSR](https://zenodo.org/records/4304567) data products. These datasets are hosted in different locations and so the functions provided within `{AquaMatchr}` to retrieve them vary. This vignette walks through how `{AquaMatchr}` functions are used to do this. Note that you are free to do this manually by visiting the data repositories directly, but the functions in this package are designed to make the process simpler to do entirely within R.
 
 We start by loading the package and any other packages we'll want to use for data wrangling, etc.
 
@@ -101,7 +101,7 @@ sdd_v1 <- download_parameters(
 ```
 
 
-# Downloading LakeSR and SiteSR
+# Downloading lakeSR and siteSR
 
 Coming soon
 
