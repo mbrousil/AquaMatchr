@@ -301,10 +301,14 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #' @param ask Logical. Should the user be asked before downloading and overwriting
 #' siteSR files that already exist locally?
 #'
-#' @returns
+#' @returns NULL (invisible)
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' download_siteSR(save_path = "~/Downloads/", algal_mask = FALSE)
+#' }
+
 download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
                             ask = TRUE){
 
@@ -502,6 +506,8 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
     EDIutils::read_data_package_citation(packageId = site_sr_id)
   )
 
+  invisible(NULL)
+
 }
 
 
@@ -534,10 +540,13 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
 #' @param ask Logical. Should the user be asked before downloading and overwriting
 #' siteSR files that already exist locally?
 #'
-#' @returns
+#' @returns NULL (invisible)
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' download_lakeSR(save_path = "~/Downloads/", algal_mask = FALSE)
+#' }
 download_lakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
                             ask = TRUE){
 
@@ -733,4 +742,7 @@ download_lakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
     "lakeSR recommended citation: ",
     EDIutils::read_data_package_citation(packageId = lake_sr_id)
   )
+
+  invisible(NULL)
+
 }
