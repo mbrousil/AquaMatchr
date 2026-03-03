@@ -1,14 +1,47 @@
-#' Title
+#' Build and save siteSR or lakeSR products from downloaded files
+#'
+#' @details
+#' Reads and stacks siteSR or lakeSR files into a single object, then optionally
+#' exports them to a single local file. The user can provide a vector of filenames
+#' to the `sr_files` argument, which will then be used as the input files. If this
+#' argument is not used, then the value of `which_sr` will be used to infer the
+#' filenames based on the default outputs of `download_siteSR()` or `download_lakeSR()`.
+#'
+#' If a file export is requested (i.e., `save` is TRUE), then the file is exported
+#' with a standard name to a user-specified location. Filenames are `sitesSR_stack.feather`
+#' for siteSR and `lakeSR_stack.feather` for lakeSR.
+#'
+#' @param which_sr String. Options are "siteSR" or "lakeSR", indicating which of
+#' the two SR products should be built.
+#' @param sr_location String. Path to location where SR files are being stored.
+#' @param sr_files Optional. A vector of filenames (five at most) with siteSR or
+#' lakeSR files, like would be saved when runing `download_lakeSR()` or `download_siteSR()`.
+#' @param save Logical. Should the built SR dataset be saved locally? Defaults to TRUE.
+#' @param save_location String. If save == TRUE, the path to the folder where the
+#' output file should be saved.
 #'
 #' @returns
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #'
-build_sr <- function(){
+#' }
+build_sr <- function(which_sr, sr_location, sr_files = NULL, save = TRUE, save_location){
 
+  # Confirm correct use of SR tag
+  if(!(which_sr == "lakeSR" | which_sr == "siteSR")){
+    stop("Input for which_sr argument is not valid. Must be 'lakeSR' or 'siteSR'.")
+  }
 
+  # Confirm file existence
+  if(!is.null(sr_files)){
+    if(!all(file.exists(file.path(sr_location, sr_files)))) {
+      stop("Some or all files in sr_files were not detected in sr_location.")
+    }
+  }
 
+  # Confirm file contents (i.e., col names)
 }
 
 #' Join AquaMatch WQP dataset to siteSR
@@ -41,9 +74,11 @@ build_sr <- function(){
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #'
+#' }
 match_siteSR_to_WQP <- function(wqp_path, siteSR_path, time_window = "5 days"){
 
-
+  lubridate::duration(time_window)
 
 }
