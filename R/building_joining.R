@@ -1,15 +1,23 @@
 #' Build and save siteSR or lakeSR products from downloaded files
 #'
 #' @details
-#' Reads and stacks siteSR or lakeSR files into a single object, then optionally
-#' exports them to a single local file. The user can provide a vector of filenames
-#' to the `sr_files` argument, which will then be used as the input files. If this
-#' argument is not used, then the value of `which_sr` will be used to infer the
-#' filenames based on the default outputs of `download_siteSR()` or `download_lakeSR()`.
+#' Reads and stacks siteSR or lakeSR files into a single object (an Arrow Table),
+#' then optionally exports them to a single local file. The user can provide a
+#' vector of filenames to the `sr_files` argument, which will then be used as
+#' the input files. If this argument is not used, then the value of `which_sr`
+#' will be used to infer the filenames based on the default outputs of
+#' `download_siteSR()` or `download_lakeSR()`.
+#'
+#' It is often possible to use Arrow Tables with `dplyr` syntax, but users may want
+#' to read the [Apache Arrow documentation on Tables](https://arrow.apache.org/docs/r/articles/data_objects.html#tables)
+#' or the *R for Data Science* [chapter on Arrow](https://r4ds.hadley.nz/arrow.html#using-dplyr-with-arrow)
+#' if these data structures are new to them. We use Arrow Tables because of their
+#' efficiency and convenience when working with large datasets.
 #'
 #' If a file export is requested (i.e., `save` is TRUE), then the file is exported
-#' with a standard name to a user-specified location. Filenames are `sitesSR_stack.feather`
-#' for siteSR and `lakeSR_stack.feather` for lakeSR.
+#' to a user-specified location. If the user provides a path to a .feather file
+#' in `save_location` then that will be used, otherwise a standardized filename
+#' will be used and saved to the directory in `save_location`.
 #'
 #' @param which_sr String. Options are "siteSR" or "lakeSR", indicating which of
 #' the two SR products should be built.
@@ -19,21 +27,25 @@
 #' @param sr_files Optional. A vector of filenames (five at most) with siteSR or
 #' lakeSR files, like would be saved when running `download_lakeSR()` or `download_siteSR()`.
 #' Should *not* include the directory provided in `sr_location`.
-#' @param save Logical. Should the built SR dataset be saved locally? Defaults to TRUE.
+#' @param save Logical. Should the built SR dataset be saved locally? Defaults to FALSE.
 #' @param save_location String. If save == TRUE, the path to the folder where the
 #' output file should be saved. If a name ending in ".feather" is provided as part
 #' of the path then this is the name that the file will be saved with. Otherwise,
 #' a default name will be used by the function. It will always be a .feather file.
+#' If a non-feather file is provided, the function will save the file to the directory
+#' indicated by save_location, but under a different, standardized filename.
 #'
-#' @returns
+#' @returns An [Arrow Table](https://arrow.apache.org/docs/r/articles/data_objects.html#tables)
+#' representing the SR dataset.
+#'
 #' @export
 #'
 #' @examples
 #' \dontrun{
 #'
 #' }
-build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
-                     save = TRUE, save_location){
+build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
+                     save = FALSE, save_location = NULL){
   # Confirm correct use of SR tag
   if(!(which_sr == "lakeSR" | which_sr == "siteSR")){
     stop("Input for which_sr argument is not valid. Must be 'lakeSR' or 'siteSR'.")
@@ -42,6 +54,20 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
   # Confirm correct use of algal_mask
   if(!is.logical(algal_mask)){
     stop("Input for algal_mask argument is not a logical value. Must be TRUE or FALSE.")
+  }
+
+  # Make sure the (optional) save_location exists upfront if it's expected
+  if(save){
+    # No info provided = error
+    if(is.null(save_location)){
+      stop("Please provide a value for save_location.")
+    } else if(!is.null(save_location)){
+      save_info <- file.info(save_location)
+      # NA for file.info$isdir = DNE
+      if(is.na(save_info$isdir)){
+        stop("The directory or file at save_location does not appear to exist.")
+      }
+    }
   }
 
   # Potential default SR path names
@@ -99,18 +125,74 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
     }
   }
 
-  message("A series of large files will now be imported. It may take several minutes.")
-
   # Read files and stack
-  sr_list <- purrr::map(.x = file_list,
-                        .f = arrow::read_feather) %>%
-    dplyr::bind_rows()
+  # We use the {arrow} package to concatenate the datasets into a single table
+  # instead of something like rbind(), which likely will use more memory than is
+  # available to the user.
+  unified_sr_dataset <- arrow::open_dataset(
+    # All files indicated to contain SR data
+    sources = file_list,
+    # The files should not be assumed to have Hive-style partitioning
+    hive_style = FALSE,
+    # They are saved as .feather files
+    format = "feather",
+    # Don't assume all files in the file_list have the same scheme. For
+    # example, Aerosols cols may not be present in all
+    unify_schemas = TRUE
+  ) %>%
+    # Convert to Arrow Table
+    arrow::as_arrow_table()
 
   # Now export if requested by user
   if(save){
+    # Standard name, in case filename not provided by user
+    std_out_name <- paste0(input_string, "_full_concatenation.feather")
+
+    # Save with standard filename if a directory is provided
+    if(save_info$isdir){
+      full_out_name <- file.path(save_location, std_out_name)
+
+      arrow::write_feather(
+        x = unified_sr_dataset,
+        sink = full_out_name
+      )
+
+      message(
+        paste0(
+          "Saving SR file as ",
+          full_out_name
+        )
+      )
+      # A filename is provided, but it's not a .feather file
+    } else if(!(save_info$isdir) & !grepl(pattern = "\\.feather$", x = save_location)){
+      # Write to dir provided, but with a standard name
+      emergency_out_name <- file.path(dirname(save_location), std_out_name)
+
+      arrow::write_feather(
+        x = unified_sr_dataset,
+        sink = emergency_out_name
+      )
+
+      # Alert user
+      message(
+        paste0(
+          "A non-feather file was indicated by save_location. Saving SR file as ",
+          emergency_out_name
+        )
+      )
+      # A .feather file is provided
+    } else if(!(save_info$isdir) & grepl(pattern = "\\.feather$", x = save_location)){
+
+      # Write externally as a single .feather file
+      arrow::write_feather(
+        x = unified_sr_dataset,
+        sink = save_location
+      )
+    }
 
   }
 
+  return(unified_sr_dataset)
 }
 
 #' Join AquaMatch WQP dataset to siteSR
