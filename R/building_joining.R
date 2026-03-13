@@ -195,6 +195,7 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
   return(unified_sr_dataset)
 }
 
+
 #' Join AquaMatch WQP dataset to siteSR
 #'
 #' @description
@@ -217,6 +218,8 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' @param siteSR_path Path to the file (.feather) storing the stacked version of
 #' the siteSR dataset (either DSWE1 or DSWE1a). This is the equivalent of the
 #' direct output of the `build_sr()` function when run with siteSR data.
+#' @param site_list_path Path to the file (.csv) storing the site list for siteSR.
+#' This is included in downloads done using `download_siteSR()`.
 #' @param time_window A string indicating the amount of time on either side of the
 #' in-situ measurements that should be used to match to siteSR overpass times, for
 #' example: "2 days", "72 hours". Defaults to "5 days".
@@ -228,8 +231,85 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' \dontrun{
 #'
 #' }
-match_siteSR_to_WQP <- function(wqp_path, siteSR_path, time_window = "5 days"){
+match_siteSR_to_WQP <- function(wqp_path, siteSR_path, time_window = "5 days",
+                                site_list_path){
 
-  lubridate::duration(time_window)
+  # Make sure files exist
+  if(!file.exists(wqp_path)){
+    stop("There doesn't appear to be a file in the location specified by wqp_path.")
+  }
+
+  if(!file.exists(siteSR_path)){
+    stop("There doesn't appear to be a file in the location specified by siteSR_path.")
+  }
+
+  if(!file.exists(site_list_path)){
+    stop("There doesn't appear to be a file in the location specified by site_list_path")
+  }
+
+  # Store time_window as duration
+  match_duration <- lubridate::duration(time_window)
+
+  # Read in WQP data, check if csv or feather
+  if(grepl(pattern = "\\.csv$", x = wqp_path)){
+    wqp_data <- arrow::read_csv_arrow(file = wqp_path)
+  } else if(grepl(pattern = "\\.feather$", x = wqp_path)){
+    wqp_data <- arrow::read_feather(file = wqp_path)
+  }
+
+  # Read in siteSR
+  siteSR <- arrow::open_dataset(
+    sources = siteSR_path,
+    format = "feather",
+    hive_style = FALSE
+  )
+
+  # Read in siteSR site list
+  site_list <- arrow::read_csv_arrow(file = site_list_path)
+
+  # Create min and max times within WQP data corresponding to specified window
+  wqp_data <- wqp_data %>%
+    dplyr::mutate(
+      min_time = ActivityStartDate - lubridate::days(match_duration),
+      max_time = ActivityStartDate + lubridate::days(match_duration)
+    )
+
+  # Add siteSR_id to WQP data to allow join with siteSR
+  wqp_w_ids <- wqp_data %>%
+    left_join(x = .,
+              y = select(site_list, loc_id, siteSR_id),
+              by = c("MonitoringLocationIdentifier" = "loc_id")) %>%
+    arrow::as_arrow_table()
+
+  # Is the misc_flag a null data type col?
+  null_true <- inherits(
+    wqp_w_ids$schema$GetFieldByName("misc_flag")$type, "Null"
+  )
+
+  # If it is, set it as int32 before proceeding
+  if(null_true){
+    wqp_w_ids <- wqp_w_ids %>%
+      dplyr::mutate(misc_flag = arrow::cast(misc_flag, arrow::int32()))
+  }
+
+  rm(wqp_data)
+  gc()
+
+  # siteSR data with only sites shared with WQP data
+  unique_sites <- wqp_w_ids %>%
+    distinct(siteSR_id) %>%
+    collect()
+
+  siteSR_shared <- siteSR %>%
+    filter(siteSR_id %in% unique_sites$siteSR_id)
+
+  matchups <- wqp_w_ids %>%
+    # arrow::as_arrow_table() %>%
+    dplyr::inner_join(siteSR_shared, by = "siteSR_id") %>%
+    # Filter relative to date col from siteSR
+    dplyr::filter(max_time >= date,
+                  min_time <= date) %>%
+    # Calc time difference between reported in situ time and overpass time
+    dplyr::mutate(time_diff = ActivityStartDate - date)
 
 }
