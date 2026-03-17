@@ -9,7 +9,7 @@
 #' @param version Either "newest" or an integer corresponding to the data package version
 #'
 #' @returns A string containing the [data package identifier](https://edirepository.org/resources/the-data-package#identifiers-of-a-data-package) for an EDI data package
-#'
+#' @keywords internal
 #' @examples
 #' # Get the ID for the latest version of the chlorophyll a data product
 #' construct_id(identifier = 1756, version = "newest")
@@ -211,64 +211,46 @@ download_RiverSR <- function(save_path, timeout_length = 4000){
 #' @param which_sr String. Options are "lakeSR", "siteSR", or "generic". Generic
 #' indicates that the function is being used for something other than the main
 #' siteSR or lakeSR data and allows custom messaging.
+#' @param file_message String. A custom file name option for "generic" mode.
+#' @keywords internal
 ask_user <- function(algal_mask, which_sr, file_message) {
-
-  if(!(which_sr == "lakeSR" | which_sr == "siteSR" | which_sr == "generic")){
-    stop("Input for which_sr argument is not valid. Must be 'lakeSR', 'siteSR', or 'generic'.")
+  # Check for valid input
+  valid_options <- c("lakeSR", "siteSR", "generic")
+  if (!(which_sr %in% valid_options)) {
+    stop("Input for which_sr is not valid. Must be 'lakeSR', 'siteSR', or 'generic'.")
   }
 
-  # lakeSR / siteSR functionality
-  if(which_sr %in% c("lakeSR", "siteSR")){
-    algal_status <- if_else(
-      condition = algal_mask,
-      true = "DSWE1a",
-      false = "DSWE1"
-    )
+  # Build the options for text to show user
+  if (which_sr %in% c("lakeSR", "siteSR")) {
+    algal_status <- if (algal_mask) "DSWE1a" else "DSWE1"
+    description <- paste0("One or more files for the ", which_sr, " version ",
+                          algal_status,
+                          " appear to already exist in the download location. ",
+                          "Would you like to continue downloading and overwrite?")
+  } else {
+    description <- paste0("The ", file_message,
+                          " file appears to already exist in the download location. ",
+                          "Would you like to continue downloading and overwrite?")
+  }
 
-    # Text to show user
-    user_prompt <- cat(
-      "One or more files for the ", which_sr, " version ",
-      algal_status,
-      " appear to already exist in the download location.\n",
-      "Would you like to continue downloading and overwrite them? [yes/no]",
-      sep = ""
-    )
+  question <- "[yes/no] > "
 
-    # Ask user if they want to continue & check for valid response
-    while (TRUE) {
-      user_input <- readline(prompt = user_prompt)
-      # Convert response to lower and no whitespace
-      user_input <- tolower(trimws(user_input))
-      if (user_input == "yes" || user_input == "no") {
-        return(user_input)
-      } else {
-        cat("Invalid input. Please enter 'yes' or 'no'.\n")
-      }
+  # Ask user if they want to continue & check for valid response
+
+  # Print the description separately bc of phantom cursor problems
+  message(description)
+
+  while (TRUE) {
+    user_input <- readline(prompt = question)
+    # Safety check for case and white space
+    user_input <- tolower(trimws(user_input))
+
+    if (user_input %in% c("yes", "no")) {
+      return(user_input)
+    } else{
+      message("Invalid input. Please enter 'yes' or 'no'.")
     }
   }
-
-  # Generic functionality
-  if(which_sr == "generic"){
-    # Text to show user
-    user_prompt <- cat(
-      "The ", file_message, " file appears to already exist in the download location.\n",
-      "Would you like to continue downloading and overwrite it? [yes/no]",
-      sep = ""
-    )
-
-    # Ask user if they want to continue & check for valid response
-    while (TRUE) {
-      user_input <- readline(prompt = user_prompt)
-      # Convert response to lower and no whitespace
-      user_input <- tolower(trimws(user_input))
-      if (user_input == "yes" || user_input == "no") {
-        return(user_input)
-      } else {
-        cat("Invalid input. Please enter 'yes' or 'no'.\n")
-      }
-    }
-  }
-
 }
 
 
@@ -351,7 +333,7 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
     }
     # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
-      filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
+      dplyr::filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
 
     # With algal mask (DSWE1a)
   } else if(algal_mask){
@@ -372,7 +354,7 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
     }
     # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
-      filter(grepl(pattern = "DSWE = 1a", x = entityName))
+      dplyr::filter(grepl(pattern = "DSWE = 1a", x = entityName))
   }
 
   message("This is a series of large downloads. It will take several minutes.")
@@ -436,8 +418,8 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
   }
 
   dl_sites <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
-    filter(entityName == "siteSR sites list") %>%
-    pull(entityId)
+    dplyr::filter(entityName == "siteSR sites list") %>%
+    dplyr::pull(entityId)
 
   # Read in data as raw bytes
   raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
@@ -479,8 +461,8 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
     }
   }
   dl_handoff <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
-    filter(entityName == "lakeSR handoff coefficients") %>%
-    pull(entityId)
+    dplyr::filter(entityName == "lakeSR handoff coefficients") %>%
+    dplyr::pull(entityId)
 
   # Read in data as raw bytes
   raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
@@ -589,7 +571,7 @@ download_lakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
     }
     # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
-      filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
+      dplyr::filter(grepl(pattern = "DSWE = 1\\)$", x = entityName))
 
     # With algal mask (DSWE1a)
   } else if(algal_mask){
@@ -610,7 +592,7 @@ download_lakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
     }
     # Get EDI entity names
     dl_entities <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
-      filter(grepl(pattern = "DSWE = 1a", x = entityName))
+      dplyr::filter(grepl(pattern = "DSWE = 1a", x = entityName))
   }
 
   message("This is a series of large downloads. It will take several minutes.")
@@ -673,8 +655,8 @@ download_lakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
     }
   }
   dl_lakes <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
-    filter(entityName == "lakeSR sites list") %>%
-    pull(entityId)
+    dplyr::filter(entityName == "lakeSR sites list") %>%
+    dplyr::pull(entityId)
 
   # Read in data as raw bytes
   raw_lake_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
@@ -716,8 +698,8 @@ download_lakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
     }
   }
   dl_handoff <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
-    filter(entityName == "lakeSR handoff coefficients") %>%
-    pull(entityId)
+    dplyr::filter(entityName == "lakeSR handoff coefficients") %>%
+    dplyr::pull(entityId)
 
   # Read in data as raw bytes
   raw_site_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
@@ -734,7 +716,7 @@ download_lakeSR <- function(save_path, algal_mask = FALSE, version = "newest",
   message(
     "Downloaded handoff coefficients as ",
     handoff_filename,
-    "."
+    ".\n"
   )
 
   # Suggest citation
