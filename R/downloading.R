@@ -137,59 +137,6 @@ download_RiverSR <- function(save_path, timeout_length = 4000){
 }
 
 
-#' Ask user about redundant downloads
-#'
-#' If planned downloads already exist locally this function is used to prompt
-#' the user to decide (i.e., "yes"/"no") whether the download should continue
-#' and the existing files should be overwritten.
-#'
-#' @param algal_mask Logical. Indicates whether DSWE1 or DSWE1a was requested.
-#' @param which_sr String. Options are "lakeSR", "siteSR", or "generic". Generic
-#' indicates that the function is being used for something other than the main
-#' siteSR or lakeSR data and allows custom messaging.
-#' @param file_message String. A custom file name option for "generic" mode.
-#' @keywords internal
-ask_user <- function(algal_mask, which_sr, file_message) {
-  # Check for valid input
-  valid_options <- c("lakeSR", "siteSR", "generic")
-  if (!(which_sr %in% valid_options)) {
-    stop("Input for which_sr is not valid. Must be 'lakeSR', 'siteSR', or 'generic'.")
-  }
-
-  # Build the options for text to show user
-  if (which_sr %in% c("lakeSR", "siteSR")) {
-    algal_status <- if (algal_mask) "DSWE1a" else "DSWE1"
-    description <- paste0("One or more files for the ", which_sr, " version ",
-                          algal_status,
-                          " appear to already exist in the download location. ",
-                          "Would you like to continue downloading and overwrite?")
-  } else {
-    description <- paste0("The ", file_message,
-                          " file appears to already exist in the download location. ",
-                          "Would you like to continue downloading and overwrite?")
-  }
-
-  question <- "[yes/no] > "
-
-  # Ask user if they want to continue & check for valid response
-
-  # Print the description separately bc of phantom cursor problems
-  message(description)
-
-  while (TRUE) {
-    user_input <- readline(prompt = question)
-    # Safety check for case and white space
-    user_input <- tolower(trimws(user_input))
-
-    if (user_input %in% c("yes", "no")) {
-      return(user_input)
-    } else{
-      message("Invalid input. Please enter 'yes' or 'no'.")
-    }
-  }
-}
-
-
 #' Download siteSR dataset from EDI
 #'
 #' @description
