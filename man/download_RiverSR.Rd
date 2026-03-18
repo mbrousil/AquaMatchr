@@ -20,6 +20,10 @@ The path to the downloaded file.
 A function to facilitate downloading of the RiverSR data product from Zenodo.
 It is mostly a wrapper around \code{zen4R::download_zenodo()}.
 }
+\note{
+The downloaded file will be large (>13 GB in size), so users will need to
+make sure that they have appropriate available storage for the file.
+}
 \examples{
 \dontrun{
 download_RiverSR(save_path = "~/Downloads/")
