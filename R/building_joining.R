@@ -224,92 +224,100 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' in-situ measurements that should be used to match to siteSR overpass times, for
 #' example: "2 days", "72 hours". Defaults to "5 days".
 #'
-#' @returns
+#' @returns The path to the joined dataset.
 #' @export
 #'
 #' @examples
 #' \dontrun{
 #'
 #' }
-match_siteSR_to_WQP <- function(wqp_path, siteSR_path, time_window = "5 days",
-                                site_list_path){
+match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
+                                time_window = "5 days"){
 
-  # Make sure files exist
-  if(!file.exists(wqp_path)){
-    stop("There doesn't appear to be a file in the location specified by wqp_path.")
+  # Ensure files exist
+  if (!file.exists(wqp_path)) stop("File not found at wqp_path.")
+  if (!file.exists(siteSR_path)) stop("File not found at siteSR_path.")
+  if (!file.exists(site_list_path)) stop("File not found at site_list_path.")
+
+  # Is WQP data csv or feather?
+  if (grepl("\\.csv$", wqp_path)) {
+    wqp_format <- "csv"
+  } else if (grepl("\\.feather$", wqp_path)) {
+    wqp_format <-  "feather"
   }
 
-  if(!file.exists(siteSR_path)){
-    stop("There doesn't appear to be a file in the location specified by siteSR_path.")
-  }
+  # Check file cols to make sure things look right:
 
-  if(!file.exists(site_list_path)){
-    stop("There doesn't appear to be a file in the location specified by site_list_path")
-  }
+  # WQP:
+  # Peek at file
+  raw_wqp <- arrow::open_dataset(wqp_path, format = wqp_format)
+  # Retrieve expected schema
+  wqp_schema <- get_arrow_schema(dataset = "wqp")
+  # Validate
+  check_cols(dataset = raw_wqp, target_schema = wqp_schema, file_label = "WQP file")
 
-  # Store time_window as duration
-  match_duration <- lubridate::duration(time_window)
+  # siteSR
+  raw_siteSR <- arrow::open_dataset(siteSR_path, format = "feather")
+  siteSR_schema <- get_arrow_schema(dataset = "siteSR")
+  check_cols(dataset = raw_siteSR, target_schema = siteSR_schema, file_label = "siteSR file")
 
-  # Read in WQP data, check if csv or feather
-  if(grepl(pattern = "\\.csv$", x = wqp_path)){
-    wqp_data <- arrow::read_csv_arrow(file = wqp_path)
-  } else if(grepl(pattern = "\\.feather$", x = wqp_path)){
-    wqp_data <- arrow::read_feather(file = wqp_path)
-  }
+  # site_list
 
-  # Read in siteSR
-  siteSR <- arrow::open_dataset(
+  # Connect to DuckDB
+  # In an R package function, use on.exit() to ensure the connection closes cleanly
+  con <- DBI::dbConnect(duckdb::duckdb())
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+
+  # Read datasets lazily via Arrow, injecting the correct schemas
+  wqp_ds <- arrow::open_dataset(
+    sources = wqp_path,
+    format = wqp_format,
+    col_types = get_arrow_schema("wqp")
+  )
+
+  siteSR_ds <- arrow::open_dataset(
     sources = siteSR_path,
     format = "feather",
-    hive_style = FALSE
+    col_types = get_arrow_schema("siteSR")
   )
 
-  # Read in siteSR site list
-  site_list <- arrow::read_csv_arrow(file = site_list_path)
+  site_list_ds <- arrow::open_dataset(
+    sources = site_list_path,
+    format = "csv",
+    col_types = get_arrow_schema("sitelist")
+  )
 
-  # Create min and max times within WQP data corresponding to specified window
-  wqp_data <- wqp_data %>%
+  # Register Arrow Datasets as DuckDB virtual tables
+  wqp_db <- arrow::to_duckdb(wqp_ds, con, "wqp_tbl")
+  siteSR_db <- arrow::to_duckdb(siteSR_ds, con, "siteSR_tbl")
+  site_list_db <- arrow::to_duckdb(site_list_ds, con, "sitelist_tbl")
+
+  # Build the lazy query using dbplyr
+  matchups_lazy <- wqp_db %>%
     dplyr::mutate(
-      min_time = ActivityStartDate - lubridate::days(match_duration),
-      max_time = ActivityStartDate + lubridate::days(match_duration)
-    )
+      # Cast to a standard TIMESTAMP first, then apply the INTERVAL
+      min_time = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") - dplyr::sql(paste0("INTERVAL '", time_window, "'")),
+      max_time = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") + dplyr::sql(paste0("INTERVAL '", time_window, "'"))
+    ) %>%
+    dplyr::left_join(
+      site_list_db %>% dplyr::select(loc_id, siteSR_id),
+      by = c("MonitoringLocationIdentifier" = "loc_id")
+    ) %>%
+    dplyr::inner_join(siteSR_db, by = "siteSR_id") %>%
+    dplyr::filter(date >= min_time, date <= max_time) %>%
+    dplyr::mutate(time_diff = ActivityStartDate - date)
 
-  # Add siteSR_id to WQP data to allow join with siteSR
-  wqp_w_ids <- wqp_data %>%
-    left_join(x = .,
-              y = select(site_list, loc_id, siteSR_id),
-              by = c("MonitoringLocationIdentifier" = "loc_id")) %>%
-    arrow::as_arrow_table()
+  # Extract the translated SQL query
+  sql_query <- dbplyr::sql_render(matchups_lazy)
 
-  # Is the misc_flag a null data type col?
-  null_true <- inherits(
-    wqp_w_ids$schema$GetFieldByName("misc_flag")$type, "Null"
+  # Execute an out-of-memory write directly to Parquet via DuckDB
+  # We bypass dbplyr/arrow collection functions to guarantee it never hits R's RAM
+  copy_query <- sprintf(
+    "COPY (%s) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
+    sql_query,
+    out_path
   )
 
-  # If it is, set it as int32 before proceeding
-  if(null_true){
-    wqp_w_ids <- wqp_w_ids %>%
-      dplyr::mutate(misc_flag = arrow::cast(misc_flag, arrow::int32()))
-  }
-
-  rm(wqp_data)
-  gc()
-
-  # siteSR data with only sites shared with WQP data
-  unique_sites <- wqp_w_ids %>%
-    distinct(siteSR_id) %>%
-    collect()
-
-  siteSR_shared <- siteSR %>%
-    filter(siteSR_id %in% unique_sites$siteSR_id)
-
-  matchups <- wqp_w_ids %>%
-    # arrow::as_arrow_table() %>%
-    dplyr::inner_join(siteSR_shared, by = "siteSR_id") %>%
-    # Filter relative to date col from siteSR
-    dplyr::filter(max_time >= date,
-                  min_time <= date) %>%
-    # Calc time difference between reported in situ time and overpass time
-    dplyr::mutate(time_diff = ActivityStartDate - date)
+  DBI::dbExecute(con, copy_query)
 
 }
