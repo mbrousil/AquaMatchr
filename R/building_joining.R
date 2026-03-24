@@ -210,6 +210,9 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' ("sdd"), or [total suspended solids](https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2048.2)
 #' ("tss").
 #'
+#' Note that this function requires a .parquet file for output of the join. This
+#' is because all join computation takes place out of memory and therefore cannot
+#' be completed using other filetypes such as .csv or .feather.
 #'
 #' @param wqp_path Path to the file (.csv or .feather) storing the AquaMatch
 #' parameter data to be joined. Should be data from a single parameter (e.g.,
@@ -223,7 +226,8 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' @param time_window A string indicating the amount of time on either side of the
 #' in-situ measurements that should be used to match to siteSR overpass times, for
 #' example: "2 days", "72 hours". Defaults to "5 days".
-#'
+#' @param save_location String. The path where a parquet file containing the output
+#' should be saved. If the string does not end in ".parquet" then an error will occur.
 #' @returns The path to the joined dataset.
 #' @export
 #'
@@ -232,6 +236,7 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #'
 #' }
 match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
+                                save_location,
                                 time_window = "5 days"){
 
   # Ensure files exist
@@ -310,13 +315,21 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   # Extract the translated SQL query
   sql_query <- dbplyr::sql_render(matchups_lazy)
 
-  # Execute an out-of-memory write directly to Parquet via DuckDB
-  # We bypass dbplyr/arrow collection functions to guarantee it never hits R's RAM
-  copy_query <- sprintf(
-    "COPY (%s) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
-    sql_query,
-    out_path
-  )
+  # Execute an out-of-memory write directly to Parquet via DuckDB:
+
+  # A filename is provided, but it's not a .parquet file
+  if(!grepl(pattern = "\\.parquet$", x = save_location)){
+    stop("A non-parquet file was indicated by save_location. Please supply a .parquet name.")
+    # A .parquet file is provided
+  } else if(grepl(pattern = "\\.parquet$", x = save_location)){
+
+    # We bypass dbplyr/arrow collection functions to guarantee it never hits R's RAM
+    copy_query <- sprintf(
+      "COPY (%s) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
+      sql_query,
+      save_location
+    )
+  }
 
   DBI::dbExecute(con, copy_query)
 
