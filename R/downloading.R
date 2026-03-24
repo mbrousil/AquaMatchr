@@ -25,7 +25,7 @@
 #' to `parameters` and a `2` is provided to `version`, the second version of each
 #' dataset will be requested, whether or not it actually exists.
 #'
-#' @returns A named list where each item is a tibble containing a dataset.
+#' @return A named list where each item is a tibble containing a dataset.
 #' @export
 #'
 #' @examples
@@ -103,7 +103,7 @@ download_parameters <- function(parameters, version = "newest"){
 #' @param timeout_length The number of seconds to allow for the download. Defaults
 #' to 4000 based on tests with the RiverSR dataset, but can be adjusted as needed.
 #'
-#' @returns The path to the downloaded file.
+#' @return The path to the downloaded file.
 #' @export
 #'
 #' @examples
@@ -166,7 +166,7 @@ download_RiverSR <- function(save_path, timeout_length = 4000){
 #' @param ask Logical. Should the user be asked before downloading and overwriting
 #' siteSR files that already exist locally?
 #'
-#' @returns NULL (invisible)
+#' @return NULL (Invisible)
 #' @export
 #'
 #' @examples
@@ -405,7 +405,7 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
 #' @param ask Logical. Should the user be asked before downloading and overwriting
 #' siteSR files that already exist locally?
 #'
-#' @returns NULL (invisible)
+#' @return NULL (Invisible)
 #' @export
 #'
 #' @examples

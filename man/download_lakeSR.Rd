@@ -20,7 +20,7 @@ version to use.}
 siteSR files that already exist locally?}
 }
 \value{
-NULL (invisible)
+NULL (Invisible)
 }
 \description{
 A function to facilitate downloading of the lakeSR data product from

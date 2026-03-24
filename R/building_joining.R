@@ -35,7 +35,7 @@
 #' If a non-feather file is provided, the function will save the file to the directory
 #' indicated by save_location, but under a different, standardized filename.
 #'
-#' @returns An [Arrow Table](https://arrow.apache.org/docs/r/articles/data_objects.html#tables)
+#' @return An [Arrow Table](https://arrow.apache.org/docs/r/articles/data_objects.html#tables)
 #' representing the SR dataset.
 #'
 #' @export
@@ -228,7 +228,7 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' example: "2 days", "72 hours". Defaults to "5 days".
 #' @param save_location String. The path where a parquet file containing the output
 #' should be saved. If the string does not end in ".parquet" then an error will occur.
-#' @returns The path to the joined dataset.
+#' @return The path to the joined dataset. (Invisible)
 #' @export
 #'
 #' @examples
@@ -331,6 +331,14 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
     )
   }
 
-  DBI::dbExecute(con, copy_query)
+  # Execute query and catch number of rows affected by it
+  rows_affected <- DBI::dbExecute(con, copy_query)
 
+  # Alert success to user
+  cli::cli_alert_success(
+    "Successfully wrote {format(rows_affected, big.mark = ',')} matchups to {.file {save_location}}."
+  )
+
+  # Return path to file, quietly
+  return(invisible(save_location))
 }

@@ -8,6 +8,7 @@ match_siteSR_to_WQP(
   wqp_path,
   siteSR_path,
   site_list_path,
+  save_location,
   time_window = "5 days"
 )
 }
@@ -24,12 +25,15 @@ direct output of the \code{build_sr()} function when run with siteSR data.}
 \item{site_list_path}{Path to the file (.csv) storing the site list for siteSR.
 This is included in downloads done using \code{download_siteSR()}.}
 
+\item{save_location}{String. The path where a parquet file containing the output
+should be saved. If the string does not end in ".parquet" then an error will occur.}
+
 \item{time_window}{A string indicating the amount of time on either side of the
 in-situ measurements that should be used to match to siteSR overpass times, for
 example: "2 days", "72 hours". Defaults to "5 days".}
 }
 \value{
-The path to the joined dataset.
+The path to the joined dataset. (Invisible)
 }
 \description{
 A function that creates a join between a specified AquaMatch harmonized Water
@@ -42,6 +46,10 @@ for the AquaMatch component are \href{https://portal.edirepository.org/nis/mapbr
 ("doc"), \href{https://portal.edirepository.org/nis/mapbrowse?scope=edi&identifier=2048&revision=2}{Secchi disk depth}
 ("sdd"), or \href{https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2048.2}{total suspended solids}
 ("tss").
+
+Note that this function requires a .parquet file for output of the join. This
+is because all join computation takes place out of memory and therefore cannot
+be completed using other filetypes such as .csv or .feather.
 }
 \examples{
 \dontrun{

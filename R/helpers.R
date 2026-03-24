@@ -60,7 +60,7 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #' @param identifier The accession number corresponding to an EDI package
 #' @param version Either "newest" or an integer corresponding to the data package version
 #'
-#' @returns A string containing the [data package identifier](https://edirepository.org/resources/the-data-package#identifiers-of-a-data-package) for an EDI data package
+#' @return A string containing the [data package identifier](https://edirepository.org/resources/the-data-package#identifiers-of-a-data-package) for an EDI data package
 #' @keywords internal
 #' @examples
 #' # Get the ID for the latest version of the chlorophyll a data product
@@ -122,7 +122,7 @@ construct_id <- function(identifier, version){
 #'
 #' @param dataset A character string indicating which schema to return. Options
 #' are "wqp", "siteSR", or "sitelist".
-#' @returns An `arrow::schema` object.
+#' @return An `arrow::schema` object.
 #' @keywords internal
 #' @noRd
 get_arrow_schema <- function(dataset = c("wqp", "siteSR", "sitelist")) {
