@@ -20,10 +20,12 @@ of an Environmental Data Initiative package ID. Also tests that the output
 ID links to an actual package.
 }
 \examples{
+\dontrun{
 # Get the ID for the latest version of the chlorophyll a data product
 construct_id(identifier = 1756, version = "newest")
 
 # Get the ID for the first version of the chlorophyll a data product
 construct_id(identifier = 1756, version = "1")
+}
 }
 \keyword{internal}

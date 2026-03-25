@@ -28,6 +28,10 @@
 #' @return A named list where each item is a tibble containing a dataset.
 #' @export
 #'
+#' @importFrom purrr map walk
+#' @importFrom EDIutils read_data_package_citation read_data_entity_names read_data_entity list_data_package_revisions
+#' @importFrom readr read_csv write_csv
+#'
 #' @examples
 #' # Downloads the most recent version of the Secchi disk depth dataset
 #' sdd_test <- download_parameters(parameters = "sdd")
@@ -168,6 +172,10 @@ download_RiverSR <- function(save_path, timeout_length = 4000){
 #'
 #' @return NULL (Invisible)
 #' @export
+#'
+#' @importFrom purrr map walk
+#' @importFrom EDIutils read_data_package_citation read_data_entity_names read_data_entity list_data_package_revisions
+#' @importFrom readr read_csv write_csv
 #'
 #' @examples
 #' \dontrun{
@@ -407,6 +415,10 @@ download_siteSR <- function(save_path, algal_mask = FALSE, version = "newest",
 #'
 #' @return NULL (Invisible)
 #' @export
+#'
+#' @importFrom purrr map walk
+#' @importFrom EDIutils read_data_package_citation read_data_entity_names read_data_entity list_data_package_revisions
+#' @importFrom readr read_csv write_csv
 #'
 #' @examples
 #' \dontrun{

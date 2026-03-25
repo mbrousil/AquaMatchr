@@ -63,11 +63,13 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #' @return A string containing the [data package identifier](https://edirepository.org/resources/the-data-package#identifiers-of-a-data-package) for an EDI data package
 #' @keywords internal
 #' @examples
+#' \dontrun{
 #' # Get the ID for the latest version of the chlorophyll a data product
 #' construct_id(identifier = 1756, version = "newest")
 #'
 #' # Get the ID for the first version of the chlorophyll a data product
 #' construct_id(identifier = 1756, version = "1")
+#' }
 
 construct_id <- function(identifier, version){
 

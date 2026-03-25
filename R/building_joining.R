@@ -231,6 +231,14 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' @return The path to the joined dataset. (Invisible)
 #' @export
 #'
+#' @importFrom magrittr %>%
+#' @importFrom dplyr mutate filter select inner_join left_join across where if_else sql
+#' @importFrom dbplyr sql_render
+#' @importFrom arrow open_dataset to_duckdb
+#' @importFrom DBI dbConnect dbDisconnect dbExecute
+#' @importFrom duckdb duckdb
+#' @importFrom cli cli_alert_success
+#'
 #' @examples
 #' \dontrun{
 #'
@@ -345,7 +353,9 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
     dplyr::mutate(
       # Calculate precise time difference in days
       time_diff = dplyr::sql("date_diff('second', landsat_utc, CAST(harmonized_utc AS TIMESTAMP)) / 86400.0")
-    )
+    ) %>%
+    # No longer needed
+    dplyr::select(-join_min, -join_max)
 
   # Extract the translated SQL query
   sql_query <- dbplyr::sql_render(matchups_lazy)
