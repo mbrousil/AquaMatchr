@@ -269,7 +269,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   # site_list
 
   # Connect to DuckDB
-  # In an R package function, use on.exit() to ensure the connection closes cleanly
+  # Use on.exit() to ensure the connection closes cleanly
   con <- DBI::dbConnect(duckdb::duckdb())
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
@@ -278,7 +278,15 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
     sources = wqp_path,
     format = wqp_format,
     col_types = get_arrow_schema("wqp")
-  )
+  ) %>%
+    # Check for NAs and correct (issue if csv is used, but won't accept null_values
+    # if format is feather)
+    dplyr::mutate(
+      dplyr::across(
+        .cols = dplyr::where(is.character),
+        .fns = ~ dplyr::if_else(.x == "NA", NA_character_, .x)
+      )
+    )
 
   siteSR_ds <- arrow::open_dataset(
     sources = siteSR_path,
@@ -289,7 +297,8 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   site_list_ds <- arrow::open_dataset(
     sources = site_list_path,
     format = "csv",
-    col_types = get_arrow_schema("sitelist")
+    col_types = get_arrow_schema("sitelist"),
+    null_values = "NA"
   )
 
   # Register Arrow Datasets as DuckDB virtual tables
@@ -297,20 +306,46 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   siteSR_db <- arrow::to_duckdb(siteSR_ds, con, "siteSR_tbl")
   site_list_db <- arrow::to_duckdb(site_list_ds, con, "sitelist_tbl")
 
+  # Create a new column of local times converted to UTC for landsat overpasses
+  site_list_prep <- site_list_db %>%
+    dplyr::mutate(
+      # 612 mins = 10:12 AM local solar time. 1 degree lon = 4 mins
+      # Multiply by 60 for secs & round to nearest int
+      utc_seconds_offset = round((612 - (WGS84_Longitude * 4)) * 60)
+    ) %>%
+    dplyr::select(loc_id, siteSR_id, utc_seconds_offset)
+
+  # Combine date and offset to get landsat_utc for joins
+  siteSR_prep <- siteSR_db %>%
+    dplyr::inner_join(
+      # Join just the offset by siteSR_id
+      site_list_prep %>% dplyr::select(siteSR_id, utc_seconds_offset),
+      by = "siteSR_id"
+    ) %>%
+    dplyr::mutate(
+      # Cast the date to a Midnight UTC timestamp, then add the minute offset
+      landsat_utc = dplyr::sql("CAST(date AS TIMESTAMP) + INTERVAL 1 SECOND * CAST(utc_seconds_offset AS INTEGER)")
+    )
+
   # Build the lazy query using dbplyr
   matchups_lazy <- wqp_db %>%
     dplyr::mutate(
-      # Cast to a standard TIMESTAMP first, then apply the INTERVAL
-      min_time = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") - dplyr::sql(paste0("INTERVAL '", time_window, "'")),
-      max_time = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") + dplyr::sql(paste0("INTERVAL '", time_window, "'"))
+      # Create UTC time window bounds based on the in-situ data
+      join_min = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") - dplyr::sql(paste0("INTERVAL '", time_window, "'")),
+      join_max = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") + dplyr::sql(paste0("INTERVAL '", time_window, "'"))
     ) %>%
     dplyr::left_join(
-      site_list_db %>% dplyr::select(loc_id, siteSR_id),
+      site_list_prep %>% dplyr::select(loc_id, siteSR_id),
       by = c("MonitoringLocationIdentifier" = "loc_id")
     ) %>%
-    dplyr::inner_join(siteSR_db, by = "siteSR_id") %>%
-    dplyr::filter(date >= min_time, date <= max_time) %>%
-    dplyr::mutate(time_diff = ActivityStartDate - date)
+    # Join to prepared siteSR data
+    dplyr::inner_join(siteSR_prep, by = "siteSR_id") %>%
+    # Filter based on the calculated landsat_utc
+    dplyr::filter(landsat_utc >= join_min, landsat_utc <= join_max) %>%
+    dplyr::mutate(
+      # Calculate precise time difference in days
+      time_diff = dplyr::sql("date_diff('second', landsat_utc, CAST(harmonized_utc AS TIMESTAMP)) / 86400.0")
+    )
 
   # Extract the translated SQL query
   sql_query <- dbplyr::sql_render(matchups_lazy)
