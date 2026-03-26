@@ -14,14 +14,14 @@ knitr::opts_chunk$set(
 )
 ```
 
-A primary use case for the `{AquaMatchr}` package is to facilitate downloading of  [AquaMatch](https://aquasat.github.io/AquaMatch_documentation/), [lakeSR and siteSR](https://aquasat.github.io/AquaMatch_lakeSR/), and [RiverSR](https://zenodo.org/records/4304567) data products. These datasets are hosted in different locations and so the functions provided within `{AquaMatchr}` to retrieve them vary. This vignette walks through how `{AquaMatchr}` functions are used to do this. Note that you are free to do this manually by visiting the data repositories directly, but the functions in this package are designed to make the process simpler to do entirely within R.
+A primary use case for the `{AquaMatchr}` package is to facilitate downloading of  [AquaMatch](https://aquasat.github.io/AquaMatch_documentation/), [lakeSR and siteSR](https://aquasat.github.io/AquaMatch_lakeSR/), and [riverSR](https://zenodo.org/records/4304567) data products. These datasets are hosted in different locations and so the functions provided within `{AquaMatchr}` to retrieve them vary. This vignette walks through how `{AquaMatchr}` functions are used to do this. Note that you are free to do this manually by visiting the data repositories directly, but the functions in this package are designed to make the process simpler to do entirely within R.
 
 We start by loading the package and any other packages we'll want to use for data wrangling, etc.
 
 ```{r setup, message = FALSE, warning = FALSE}
 library(AquaMatchr)
-library(tidyverse)
-library(feather)
+library(dplyr)
+library(arrow)
 ```
 
 # Downloading and saving *in-situ* parameter data
@@ -77,7 +77,7 @@ And finally, if you'd like to save the datasets permanently for use after this R
 write_feather(x = tss_df, path = "path/to/folder/of/choice")
 ```
 
-Feather files are both time- and space-efficient ways to store data for use in R and other programming languages. (See, for example, [sections 5.4.2 and 5.4.3](https://csgillespie.github.io/efficientR/input-output.html) in Gillespie & Lovelace, 2021). You could also use a `.csv` or `.rds` format here, for example.
+Feather files are both time- and space-efficient ways to store data for use in R and other programming languages. (See, for example, [sections 5.4.2 and 5.4.3](https://csgillespie.github.io/efficientR/input-output.html) in Gillespie & Lovelace, 2021). You could also use a `.csv` or `.rds` format here, for example. We suggest using `.feather` or `.csv` for analyses that will use this package because these are the most common filetypes our functions are built to work with.
 
 ## Selecting specific parameter versions
 
@@ -103,20 +103,62 @@ sdd_v1 <- download_parameters(
 
 # Downloading lakeSR and siteSR
 
-Coming soon
+[LakeSR](https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2114.1) and [siteSR](https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2254.1) are housed on EDI, similarly to the harmonized *in-situ* sampling datasets. A separate function is provided to download each one: `AquaMatchr::download_siteSR()` and `AquaMatchr::download_lakeSR()`. Both functions download multiple large files to a path provided by the user. The files are not read into the R environment during the download in order to save memory. Both have `algal_mask` arguments: If `TRUE`, the algal mask version of the dataset (DSWE1a) is downloaded, otherwise DSWE1 is used (i.e., `FALSE`).
 
-# Downloading RiverSR
+For example, the code below would download the DSWE1 version of siteSR and would also ask the user to confirm that any existing files with identical names in the download location should be overwritten (i.e., `ask` = `TRUE`).
 
-The RiverSR dataset is stored on Zenodo, and due to its large size we download it without bringing it into the R environment. This takes place through the `AquaMatchr::download_RiverSR()` function, which requires a download path to be provided by the user. The `timeout_length` for `download_RiverSR()` can also be specified but by default is 4,000 seconds, which typically worked in testing for this function (though it may vary throughout time). RiverSR will be downloaded and saved as `"riverSR_usa_v1.1.feather"` in the folder specified in the `save_path` argument.
-
-```{r riversr-download, eval = FALSE}
-download_RiverSR(save_path = "path/to/folder/of/choice")
-
-# Can be loaded into environment using
-RiverSR <- read_feather("path/to/folder/of/choice/riverSR_usa_v1.1.feather")
+```{r sitesr-download, eval = FALSE}
+download_siteSR(
+  save_location = "path/to/folder/of/choice",
+  algal_mask = FALSE,
+  ask = TRUE
+)
 ```
 
-The RiverSR download will be nearly 14 GB in size and the download may take 30 minutes or more to complete.
+The `download_siteSR()` function downloads the following files from EDI:
+
++ lakeSR handoff coefficients (.csv)
++ siteSR sites list (.csv)
++ siteSR data from Landsat 4 (.feather)
++ siteSR data from Landsat 5 (.feather)
++ siteSR data from Landsat 7 (.feather)
++ siteSR data from Landsat 8 (.feather)
++ siteSR data from Landsat 9 (.feather)
+
+The lakeSR handoff coefficients file is included with this download because both datasets use the same file, but it is only contained in the lakeSR release.
+
+The equivalent `download_lakeSR()` call would download lakeSR files:
+```{r lakesr-download, eval = FALSE}
+download_lakeSR(
+  save_location = "path/to/folder/of/choice",
+  algal_mask = FALSE,
+  ask = TRUE
+)
+```
+
+The lakeSR files:
+
++ lakeSR handoff coefficients (.csv)
++ lakeSR sites list (.csv)
++ lakeSR data from Landsat 4 (.feather)
++ lakeSR data from Landsat 5 (.feather)
++ lakeSR data from Landsat 7 (.feather)
++ lakeSR data from Landsat 8 (.feather)
++ lakeSR data from Landsat 9 (.feather)
+
+
+# Downloading riverSR
+
+The [riverSR dataset](https://doi.org/10.5281/zenodo.4304567) is stored on Zenodo, and due to its large size we download it without bringing it into the R environment. This takes place through the `AquaMatchr::download_riverSR()` function, which requires a download path to be provided by the user. The `timeout_length` for `download_riverSR()` can also be specified but by default is 4,000 seconds, which typically worked in testing for this function (though it may vary throughout time). RiverSR will be downloaded and saved as `"riverSR_usa_v1.1.feather"` in the folder specified in the `save_location` argument.
+
+```{r riversr-download, eval = FALSE}
+download_riverSR(save_location = "path/to/folder/of/choice")
+
+# Can be loaded into environment using
+riverSR <- read_feather("path/to/folder/of/choice/riverSR_usa_v1.1.feather")
+```
+
+The riverSR download will be nearly 14 GB in size and the download may take 30 minutes or more to complete.
 
 
 

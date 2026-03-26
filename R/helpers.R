@@ -14,20 +14,15 @@ ask_user <- function(algal_mask, which_sr, file_message) {
   # Check for valid input
   valid_options <- c("lakeSR", "siteSR", "generic")
   if (!(which_sr %in% valid_options)) {
-    stop("Input for which_sr is not valid. Must be 'lakeSR', 'siteSR', or 'generic'.")
+    cli::cli_abort("Input for {.arg which_sr} is not valid. Must be 'lakeSR', 'siteSR', or 'generic'.")
   }
 
   # Build the options for text to show user
   if (which_sr %in% c("lakeSR", "siteSR")) {
     algal_status <- if (algal_mask) "DSWE1a" else "DSWE1"
-    description <- paste0("One or more files for the ", which_sr, " version ",
-                          algal_status,
-                          " appear to already exist in the download location. ",
-                          "Would you like to continue downloading and overwrite?")
+    description <- "One or more files for the {.val {which_sr}} version {.val {algal_status}} appear to already exist in the download location. Would you like to continue downloading and overwrite?"
   } else {
-    description <- paste0("The ", file_message,
-                          " file appears to already exist in the download location. ",
-                          "Would you like to continue downloading and overwrite?")
+    description <- "The {.val {file_message}} file appears to already exist in the download location. Would you like to continue downloading and overwrite?"
   }
 
   question <- "[yes/no] > "
@@ -35,7 +30,7 @@ ask_user <- function(algal_mask, which_sr, file_message) {
   # Ask user if they want to continue & check for valid response
 
   # Print the description separately bc of phantom cursor problems
-  message(description)
+  cli::cli_alert_warning(description)
 
   while (TRUE) {
     user_input <- readline(prompt = question)
@@ -45,7 +40,7 @@ ask_user <- function(algal_mask, which_sr, file_message) {
     if (user_input %in% c("yes", "no")) {
       return(user_input)
     } else{
-      message("Invalid input. Please enter 'yes' or 'no'.")
+      cli::cli_alert_info("Invalid input. Please enter 'yes' or 'no'.")
     }
   }
 }
@@ -62,6 +57,7 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #'
 #' @return A string containing the [data package identifier](https://edirepository.org/resources/the-data-package#identifiers-of-a-data-package) for an EDI data package
 #' @keywords internal
+#' @importFrom cli cli_abort
 #' @examples
 #' \dontrun{
 #' # Get the ID for the latest version of the chlorophyll a data product
@@ -70,7 +66,6 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #' # Get the ID for the first version of the chlorophyll a data product
 #' construct_id(identifier = 1756, version = "1")
 #' }
-
 construct_id <- function(identifier, version){
 
   # If the user indicates they want the newest version of the pub, ask EDI for it:
@@ -89,7 +84,7 @@ construct_id <- function(identifier, version){
     # Confirm that this ID works and export it if it does
     test_id <- try(EDIutils::read_data_entity_names(package_id), silent = TRUE)
     if(inherits(test_id, "try-error")) {
-      stop("The package ID does not seem to exist in EDI. Please check that the identifier and version are accurate.")
+      cli::cli_abort("The package ID does not seem to exist in EDI. Please check that the {.arg identifier} and {.arg version} are accurate.")
     } else {
       return(package_id)
     }
@@ -103,7 +98,7 @@ construct_id <- function(identifier, version){
 
     test_id <- try(EDIutils::read_data_entity_names(package_id), silent = TRUE)
     if(inherits(test_id, "try-error")) {
-      stop("The package ID does not seem to exist in EDI. Please check that the identifier and version are accurate.")
+      cli::cli_abort("The package ID does not seem to exist in EDI. Please check that the {.arg identifier} and {.arg version} are accurate.")
     } else {
       return(package_id)
     }
@@ -111,7 +106,7 @@ construct_id <- function(identifier, version){
     # If something unexpected, say so:
   } else {
 
-    stop("Unexpected input to version argument. Please use 'newest' or an integer value.")
+    cli::cli_abort("Unexpected input to {.arg version} argument. Please use {.val newest} or an integer value.")
 
   }
 
@@ -284,6 +279,7 @@ get_arrow_schema <- function(dataset = c("wqp", "siteSR", "sitelist")) {
 #' @param file_label  String. Name that should be used when referring to the file
 #' in messages.
 #' @keywords internal
+#' @importFrom cli cli_abort
 check_cols <- function(dataset, target_schema, file_label = "Input file") {
 
   # Extract column names from the formal schema
@@ -294,14 +290,12 @@ check_cols <- function(dataset, target_schema, file_label = "Input file") {
   missing <- setdiff(required_cols, actual_cols)
 
   if (length(missing) > 0) {
-    stop(
-      paste0(
-        file_label, " is missing these expected columns:\n",
-        paste("-", missing, collapse = "\n"),
-        "\n\nPlease confirm that the correct file has been provided."
-      ),
-      call. = FALSE
-    )
+    # {cli} package will return bulleted lists with the syntax below:
+    cli::cli_abort(c(
+      "{.val {file_label}} is missing these expected columns:",
+      "x" = "{missing}",
+      "i" = "Please confirm that the correct file has been provided."
+    ), call = NULL)
   }
   return(invisible(TRUE))
 }
@@ -311,10 +305,14 @@ check_cols <- function(dataset, target_schema, file_label = "Input file") {
 #' @param time_window A string like "5 days" or "72 hours".
 #' @return invisible(TRUE) if valid, otherwise throws an error.
 #' @keywords internal
+#' @importFrom cli cli_abort
 check_time_window <- function(time_window) {
   # Ensure it is a single character string first
   if (!is.character(time_window) || length(time_window) != 1) {
-    stop("The time_window argument must be a single character string (e.g., '5 days').", call. = FALSE)
+    cli::cli_abort(c(
+      "The {.arg time_window} argument must be a single character string.",
+      "i" = "Example: {.val 5 days} or {.val 72 hours}"
+    ), call = NULL)
   }
 
   # Define valid DuckDB interval units
@@ -334,11 +332,12 @@ check_time_window <- function(time_window) {
 
   # Throw a clean error if any check fails
   if (!is_valid_format || !is_numeric_val || !is_valid_unit) {
-    stop(
-      "Invalid time_window format. Please provide a number followed by a space and a valid unit (e.g., '5 days', '72 hours').\n",
-      "You provided: '", time_window, "'",
-      call. = FALSE
-    )
+    cli::cli_abort(c(
+      "Invalid {.arg time_window} format.",
+      "x" = "You provided: {.val {time_window}}",
+      "i" = "Please provide a number followed by a space and a valid unit.",
+      "i" = "Examples: {.val 5 days} or {.val 72 hours}"
+    ), call = NULL)
   }
 
   return(invisible(TRUE))

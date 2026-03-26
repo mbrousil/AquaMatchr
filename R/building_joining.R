@@ -40,32 +40,39 @@
 #'
 #' @export
 #'
+#' @importFrom cli cli_abort cli_alert_info cli_alert_success
 #' @examples
 #' \dontrun{
-#'
+#' stacked_siteSR <- build_sr(
+#'   which_sr = "siteSR",
+#'   sr_location = "data/siteSR_raw",
+#'   algal_mask = FALSE,
+#'   save = TRUE,
+#'   save_location = "data/siteSR_DSWE1_stacked.feather"
+#' )
 #' }
 build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
                      save = FALSE, save_location = NULL){
   # Confirm correct use of SR tag
   if(!(which_sr == "lakeSR" | which_sr == "siteSR")){
-    stop("Input for which_sr argument is not valid. Must be 'lakeSR' or 'siteSR'.")
+    cli::cli_abort("Input for {.arg which_sr} argument is not valid. Must be {.val lakeSR} or {.val siteSR}.", call = NULL)
   }
 
   # Confirm correct use of algal_mask
   if(!is.logical(algal_mask)){
-    stop("Input for algal_mask argument is not a logical value. Must be TRUE or FALSE.")
+    cli::cli_abort("Input for {.arg algal_mask} argument is not a logical value. Must be {.val TRUE} or {.val FALSE}.", call = NULL)
   }
 
   # Make sure the (optional) save_location exists upfront if it's expected
   if(save){
     # No info provided = error
     if(is.null(save_location)){
-      stop("Please provide a value for save_location.")
+      cli::cli_abort("Please provide a value for {.arg save_location}.", call = NULL)
     } else if(!is.null(save_location)){
       save_info <- file.info(save_location)
       # NA for file.info$isdir = DNE
       if(is.na(save_info$isdir)){
-        stop("The directory or file at save_location does not appear to exist.")
+        cli::cli_abort("The directory or file at {.arg save_location} ({.file {save_location}}) does not appear to exist.", call = NULL)
       }
     }
   }
@@ -112,14 +119,14 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
   # 1. If file path vector was provided
   if(!is.null(sr_files)){
     if(!all(file.exists(file.path(sr_location, sr_files)))) {
-      stop("Some or all files in sr_files were not detected in sr_location.")
+      cli::cli_abort("Some or all files in {.arg sr_files} were not detected in {.file {sr_location}}.", call = NULL)
     } else{
       file_list <- file.path(sr_location, sr_files)
     }
     # 2. If file path vector wasn't provided (expect default names)
   } else if(is.null(sr_files)){
     if(!all(file.exists(file.path(sr_location, default_filenames)))){
-      stop("Some or all expected SR files were not detected in sr_location.")
+      cli::cli_abort("Some or all expected SR files were not detected in {.file {sr_location}}.", call = NULL)
     } else{
       file_list <- file.path(sr_location, default_filenames)
     }
@@ -157,12 +164,8 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
         sink = full_out_name
       )
 
-      message(
-        paste0(
-          "Saving SR file as ",
-          full_out_name
-        )
-      )
+      cli::cli_alert_success("Saving SR file as {.file {full_out_name}}")
+
       # A filename is provided, but it's not a .feather file
     } else if(!(save_info$isdir) & !grepl(pattern = "\\.feather$", x = save_location)){
       # Write to dir provided, but with a standard name
@@ -174,12 +177,8 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
       )
 
       # Alert user
-      message(
-        paste0(
-          "A non-feather file was indicated by save_location. Saving SR file as ",
-          emergency_out_name
-        )
-      )
+      cli::cli_alert_info("A non-feather file was indicated by {.arg save_location}. Saving SR file as {.file {emergency_out_name}}")
+
       # A .feather file is provided
     } else if(!(save_info$isdir) & grepl(pattern = "\\.feather$", x = save_location)){
 
@@ -237,20 +236,33 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' @importFrom arrow open_dataset to_duckdb
 #' @importFrom DBI dbConnect dbDisconnect dbExecute
 #' @importFrom duckdb duckdb
-#' @importFrom cli cli_alert_success
+#' @importFrom cli cli_abort cli_alert_success
 #'
 #' @examples
 #' \dontrun{
+#' # Define paths to downloaded and stacked data
+#' wqp_data <- "data/chla_harmonized.feather"
+#' sr_stacked <- "data/siteSR_DSWE1_full_concatenation.feather"
+#' sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
+#' out_file <- "data/chla_siteSR_matchups.parquet"
 #'
+#' # Run the matchups with a 5-day window
+#' match_siteSR_to_WQP(
+#'   wqp_path = wqp_data,
+#'   siteSR_path = sr_stacked,
+#'   site_list_path = sr_sites,
+#'   save_location = out_file,
+#'   time_window = "5 days"
+#' )
 #' }
 match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
                                 save_location,
                                 time_window = "5 days"){
 
   # Ensure files exist
-  if (!file.exists(wqp_path)) stop("File not found at wqp_path.")
-  if (!file.exists(siteSR_path)) stop("File not found at siteSR_path.")
-  if (!file.exists(site_list_path)) stop("File not found at site_list_path.")
+  if (!file.exists(wqp_path)) cli::cli_abort("File not found at {.arg wqp_path} ({.file {wqp_path}}).", call = NULL)
+  if (!file.exists(siteSR_path)) cli::cli_abort("File not found at {.arg siteSR_path} ({.file {siteSR_path}}).", call = NULL)
+  if (!file.exists(site_list_path)) cli::cli_abort("File not found at {.arg site_list_path} ({.file {site_list_path}}).", call = NULL)
 
   # Is WQP data csv or feather?
   if (grepl("\\.csv$", wqp_path)) {
@@ -364,7 +376,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 
   # A filename is provided, but it's not a .parquet file
   if(!grepl(pattern = "\\.parquet$", x = save_location)){
-    stop("A non-parquet file was indicated by save_location. Please supply a .parquet name.")
+    cli::cli_abort("A non-parquet file was indicated by {.arg save_location}. Please supply a {.val .parquet} name.", call = NULL)
     # A .parquet file is provided
   } else if(grepl(pattern = "\\.parquet$", x = save_location)){
 
