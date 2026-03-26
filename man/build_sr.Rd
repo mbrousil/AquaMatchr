@@ -63,6 +63,12 @@ will be used and saved to the directory in \code{save_location}.
 }
 \examples{
 \dontrun{
-
+stacked_siteSR <- build_sr(
+  which_sr = "siteSR",
+  sr_location = "data/siteSR_raw",
+  algal_mask = FALSE,
+  save = TRUE,
+  save_location = "data/siteSR_DSWE1_stacked.feather"
+)
 }
 }

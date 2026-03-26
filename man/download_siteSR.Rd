@@ -4,10 +4,15 @@
 \alias{download_siteSR}
 \title{Download siteSR dataset from EDI}
 \usage{
-download_siteSR(save_path, algal_mask = FALSE, version = "newest", ask = TRUE)
+download_siteSR(
+  save_location,
+  algal_mask = FALSE,
+  version = "newest",
+  ask = TRUE
+)
 }
 \arguments{
-\item{save_path}{A string containing the path to the folder where the dataset
+\item{save_location}{A string containing the path to the folder where the dataset
 should be saved.}
 
 \item{algal_mask}{Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
@@ -20,7 +25,8 @@ version to use.}
 siteSR files that already exist locally?}
 }
 \value{
-NULL (Invisible)
+A named character vector containing the local file paths for all
+downloaded siteSR datasets. Returned invisibly.
 }
 \description{
 A function to facilitate downloading of the siteSR data product from
@@ -44,6 +50,6 @@ will need to make sure that they have appropriate available storage for the file
 }
 \examples{
 \dontrun{
-download_siteSR(save_path = "~/Downloads/", algal_mask = FALSE)
+download_siteSR(save_location = "~/Downloads/", algal_mask = FALSE)
 }
 }

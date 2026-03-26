@@ -53,6 +53,19 @@ be completed using other filetypes such as .csv or .feather.
 }
 \examples{
 \dontrun{
+# Define paths to downloaded and stacked data
+wqp_data <- "data/chla_harmonized.feather"
+sr_stacked <- "data/siteSR_DSWE1_full_concatenation.feather"
+sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
+out_file <- "data/chla_siteSR_matchups.parquet"
 
+# Run the matchups with a 5-day window
+match_siteSR_to_WQP(
+  wqp_path = wqp_data,
+  siteSR_path = sr_stacked,
+  site_list_path = sr_sites,
+  save_location = out_file,
+  time_window = "5 days"
+)
 }
 }
