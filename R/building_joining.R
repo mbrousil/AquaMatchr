@@ -399,3 +399,248 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   # Return path to file, quietly
   return(invisible(save_location))
 }
+
+
+#' Apply intermission handoffs to lakeSR or siteSR
+#'
+#' @param input_path
+#' @param handoff_path
+#' @param correction_method
+#' @param sat_target
+#' @param algal_mask
+#' @param save_location
+#'
+#' @return
+#'
+#' @importFrom readr read_csv
+#' @importFrom dplyr case_when mutate filter select left_join if_else any_of
+#' @importFrom tidyr pivot_longer pivot_wider
+#' @importFrom arrow open_dataset write_parquet
+#' @importFrom cli cli_abort cli_alert_info cli_alert_warning
+#' @importFrom rlang sym := !!
+#'
+#' @export
+#'
+#' @examples
+apply_handoffs <- function(input_path, handoff_path, correction_method,
+                           sat_target, algal_mask, save_location){
+  # Confirm use of correction_method
+  if(!correction_method %in% c("Roy_deming", "Roy_lm", "Gardner_poly")){
+    cli::cli_abort(
+      paste0(
+        "Input for {.arg correction_method} argument is not valid. Must be ",
+        "{.val Roy_deming}, {.val Roy_lm}, or {.val Gardner_poly}"
+      ), call = NULL)
+
+  }
+
+  # Confirm .parquet output
+  if(!grepl(pattern = "\\.parquet$", x = save_location)){
+    cli::cli_abort(
+      paste0(
+        "A non-parquet file was indicated by {.arg save_location}. Please supply a ",
+        "{.val .parquet} name."
+      ), call = NULL)
+  }
+
+  handoffs <- read_csv(handoff_path)
+
+  # Parse method
+  user_method <- gsub(pattern = "Roy_|Gardner_", replacement = "", x = correction_method)
+
+  # Remove col(s) that aren't need based on correction choice
+  if(grepl(pattern = "Roy", x = correction_method)){
+    handoffs_slim <- handoffs %>%
+      dplyr::filter(
+        correction == "Roy"
+      ) %>%
+      # Drop unrelated cols
+      dplyr::select(-c(B1, B2))
+  } else if(grepl(pattern = "Gardner", x = correction_method)){
+    handoffs_slim <- handoffs %>%
+      dplyr::filter(
+        correction == "Gardner"
+      ) %>%
+      # Drop unrelated col
+      dplyr::select(-slope)
+  }
+
+  # Filter for method, DSWE, sat
+  handoffs_method <- handoffs_slim %>%
+    dplyr::filter(
+      method == user_method,
+      dswe == switch(
+        as.character(algal_mask),
+        "TRUE" = "DSWE1a",
+        "FALSE" = "DSWE1"
+      ),
+      sat_to == sat_target
+    )
+
+  # Pivot to wide for math
+  handoffs_wide <- handoffs_method %>%
+    tidyr::pivot_longer(
+      cols = intercept:max_in_val,
+      names_to = "coefs",
+      values_to = "value"
+    ) %>%
+    dplyr::mutate(new_column = paste(band, coefs, sep = "_")) %>%
+    dplyr::select(-band, -coefs) %>%
+    tidyr::pivot_wider(names_from = new_column,
+                       values_from = value)
+
+  # SR dataset
+  input_data <- arrow::open_dataset(
+    sources = input_path
+  ) %>%
+    dplyr::mutate(
+      # Standardize sat mission naming for upcoming join
+      sat_harmonize = case_when(
+        mission == "LT04" ~ "LS5",
+        mission == "LT05" ~ "LS5",
+        mission == "LE07" ~ "LS7",
+        mission == "LC08" ~ "LS8",
+        mission == "LC09" ~ "LS8"
+      )
+    )
+
+  # Warn the user if they are attempting to harmonize to LS8
+  if (sat_target == "LS8") {
+    cli::cli_alert_info(
+      paste0("Note: {.arg sat_target} is {.val LS8}. Any data that is not from Landsat 7 ",
+             "will be returned as {.val NA}. See {.url https://aquasat.github.io/AquaMatch_lakeSR/define-handoff.html}.")
+    )
+  }
+
+  # Join handoffs to SR
+  input_w_handoffs <- input_data %>%
+    dplyr::left_join(
+      x = .,
+      y = handoffs_wide,
+      by = c("sat_harmonize" = "sat_corr")
+    )
+
+  # Which sat? Used in col names below
+  ls_num <- gsub(pattern = "[^0-9]", replacement = "", x = sat_target)
+
+  # Roy correction handling
+  if(grepl(pattern = "Roy", x = correction_method)){
+
+    # Don't error out if a band is missing:
+    expected_bands <- c("Red", "Green", "Blue", "Nir", "SurfaceTemp",
+                        "Swir1", "Swir2")
+
+    for(band in expected_bands) {
+
+      med_col <- paste0("med_", band)
+
+      # Proceed if median col exists
+      if (med_col %in% names(input_w_handoffs)) {
+
+        intercept_col <- paste0("med_", band, "_intercept")
+        slope_col <- paste0("med_", band, "_slope")
+        min_col <- paste0("med_", band, "_min_in_val")
+        max_col <- paste0("med_", band, "_max_in_val")
+
+        corr_col <- paste0(tolower(band), "_corr_", ls_num)
+        flag_col <- paste0("flag_", tolower(band), "_", ls_num)
+
+        raw_corr_col <- paste0("raw_corr_temp_", band)
+
+        # Apply handoff
+        input_w_handoffs <- input_w_handoffs %>%
+          dplyr::mutate(
+            # Math for linear handoff
+            !!raw_corr_col := !!sym(intercept_col) + !!sym(slope_col) * !!sym(med_col),
+            # If mission was same as sat_target, then corrected vals should be NA
+            # because they didn't need correction. An NA_real_ indicates something
+            # unexpected occurring
+            !!corr_col := case_when(
+              sat_harmonize == sat_target & is.na(!!sym(raw_corr_col)) ~ !!sym(med_col),
+              sat_harmonize != sat_target & !is.na(!!sym(raw_corr_col)) ~ !!sym(raw_corr_col),
+              .default = NA_real_
+            ),
+            # Flags indicate that the median was outside of the min/max range used
+            # in definining the handoff
+            !!flag_col := dplyr::if_else(
+              (!!sym(med_col) <= !!sym(max_col) & !!sym(med_col) >= !!sym(min_col)) | is.na(!!sym(max_col)),
+              NA_character_,
+              "extreme value"
+            )
+          ) %>%
+          # Clean up
+          dplyr::select(
+            -dplyr::any_of(c(raw_corr_col, intercept_col, slope_col, min_col, max_col))
+          )
+
+      } else {
+        cli::cli_alert_warning(
+          "Expected column {.var {med_col}} is missing. Skipping {.val {band}} correction."
+        )
+      }
+    }
+
+  } else if(grepl(pattern = "Gardner", x = correction_method)){
+
+    # Don't error out if a band is missing:
+    expected_bands <- c("Red", "Green", "Blue", "Nir", "SurfaceTemp",
+                        "Swir1", "Swir2")
+
+    for(band in expected_bands) {
+
+      med_col <- paste0("med_", band)
+
+      # Proceed if median col exists
+      if (med_col %in% names(input_w_handoffs)) {
+
+        intercept_col <- paste0("med_", band, "_intercept")
+        # Gardner uses B1 and B2 instead of slope
+        b1_col  <- paste0("med_", band, "_B1")
+        b2_col  <- paste0("med_", band, "_B2")
+        min_col <- paste0("med_", band, "_min_in_val")
+        max_col <- paste0("med_", band, "_max_in_val")
+
+        corr_col <- paste0(tolower(band), "_corr_", ls_num)
+        flag_col <- paste0("flag_", tolower(band), "_", ls_num)
+
+        raw_corr_col <- paste0("raw_corr_temp_", band)
+
+        # Apply handoff
+        input_w_handoffs <- input_w_handoffs %>%
+          dplyr::mutate(
+            # Math for poly handoff
+            !!raw_corr_col := !!sym(intercept_col) + (!!sym(b1_col) * !!sym(med_col)) + (!!sym(b2_col) * (!!sym(med_col)^2)),
+
+            # If mission was same as sat_target, then corrected vals should be NA
+            !!corr_col := case_when(
+              sat_harmonize == sat_target & is.na(!!sym(raw_corr_col)) ~ !!sym(med_col),
+              sat_harmonize != sat_target & !is.na(!!sym(raw_corr_col)) ~ !!sym(raw_corr_col),
+              .default = NA_real_
+            ),
+            # Flags indicate that the median was outside of the min/max range used
+            # in definining the handoff
+            !!flag_col := dplyr::if_else(
+              (!!sym(med_col) <= !!sym(max_col) & !!sym(med_col) >= !!sym(min_col)) | is.na(!!sym(max_col)),
+              NA_character_,
+              "extreme value"
+            )
+          ) %>%
+          # Clean up
+          dplyr::select(
+            -dplyr::any_of(c(raw_corr_col, intercept_col, b1_col, b2_col, min_col, max_col))
+          )
+
+      } else {
+        cli::cli_alert_warning(
+          "Expected column {.var {med_col}} is missing. Skipping {.val {band}} correction."
+        )
+      }
+    }
+  }
+  # Execute query and write to disk
+  arrow::write_parquet(input_w_handoffs, sink = save_location)
+
+  # Return path to file, quietly
+  return(invisible(save_location))
+
+}
