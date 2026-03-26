@@ -2,7 +2,7 @@
 title: "Downloading data"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{downloading-edi}
+  %\VignetteIndexEntry{downloading}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
