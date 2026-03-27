@@ -411,7 +411,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' `match_siteSR_to_WQP()`).
 #'
 #' It uses the `{arrow}` package to process the data out-of-core and saves the
-#' corrected dataset as a .parquet file.
+#' corrected dataset as a .parquet file. New columns are added
 #'
 #' @param input_path Character. Path to the input .parquet dataset containing surface reflectance data.
 #' @param handoff_path Character. Path to the .csv file containing the handoff coefficients.
@@ -432,7 +432,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' @importFrom dplyr case_when mutate filter select left_join if_else any_of
 #' @importFrom tidyr pivot_longer pivot_wider
 #' @importFrom arrow open_dataset write_parquet
-#' @importFrom cli cli_abort cli_alert_info cli_alert_warning
+#' @importFrom cli cli_abort cli_alert_info cli_alert_success cli_alert_warning
 #' @importFrom rlang sym := !!
 #'
 #' @export
@@ -638,7 +638,7 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
         input_w_handoffs <- input_w_handoffs %>%
           dplyr::mutate(
             # Math for poly handoff
-            !!raw_corr_col := !!sym(intercept_col) + (!!sym(b1_col) * !!sym(med_col)) + (!!sym(b2_col) * (!!sym(med_col)^2)),
+            !!raw_corr_col := !!sym(intercept_col) + (!!sym(b1_col) * !!sym(med_col)) + (!!sym(b2_col) * (!!sym(med_col))^2),
 
             # If mission was same as sat_target, then corrected vals should be NA
             !!corr_col := case_when(
@@ -668,6 +668,11 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
   }
   # Execute query and write to disk
   arrow::write_parquet(input_w_handoffs, sink = save_location)
+
+  # Alert success to user
+  cli::cli_alert_success(
+    "Successfully wrote SR file with handoffs to {.file {save_location}}."
+  )
 
   # Return path to file, quietly
   return(invisible(save_location))
