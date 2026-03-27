@@ -43,7 +43,7 @@ lakeSR, siteSR, matchups of siteSR with \emph{in-situ} data (e.g., outputs from
 \code{match_siteSR_to_WQP()}).
 
 It uses the \code{{arrow}} package to process the data out-of-core and saves the
-corrected dataset as a .parquet file.
+corrected dataset as a .parquet file. New columns are added
 }
 \examples{
 \dontrun{

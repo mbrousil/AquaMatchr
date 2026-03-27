@@ -360,12 +360,16 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
       }
     }
   }
-  dl_handoff <- EDIutils::read_data_entity_names(packageId = site_sr_id) %>%
+
+  # lakeSR EDI ID, for handoffs only
+  lake_sr_id <- construct_id(identifier = 2114, version = "newest")
+
+  dl_handoff <- EDIutils::read_data_entity_names(packageId = lake_sr_id) %>%
     dplyr::filter(entityName == "lakeSR handoff coefficients") %>%
     dplyr::pull(entityId)
 
   # Read in data as raw bytes
-  raw_site_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
+  raw_site_bytes <- EDIutils::read_data_entity(packageId = lake_sr_id,
                                                entityId = dl_handoff)
   # Parse
   suppressMessages({
