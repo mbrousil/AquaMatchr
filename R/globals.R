@@ -20,6 +20,11 @@ utils::globalVariables(
 
     # DuckDB / SQL Join temporary variables
     "utc_seconds_offset", "landsat_utc", "join_min", "join_max",
-    "harmonized_utc", "time_diff"
+    "harmonized_utc", "time_diff",
+
+    # Handoff related
+    "correction", "B1", "B2", "slope", "method", "dswe",
+    "sat_to", "intercept", "max_in_val", "coefs",
+    "new_column", "value"
   )
 )

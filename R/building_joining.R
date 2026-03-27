@@ -401,16 +401,32 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 }
 
 
-#' Apply intermission handoffs to lakeSR or siteSR
+#' Apply intermission handoffs to surface reflectance data
 #'
-#' @param input_path
-#' @param handoff_path
-#' @param correction_method
-#' @param sat_target
-#' @param algal_mask
-#' @param save_location
+#' @description
+#' Applies satellite handoff coefficients (using either Roy or Gardner methods) to
+#' surface reflectance data. This function standardizes band measurements across
+#' Landsat missions to a target satellite's baseline. It is intended for use on
+#' lakeSR, siteSR, matchups of siteSR with *in-situ* data (e.g., outputs from
+#' `match_siteSR_to_WQP()`).
 #'
-#' @return
+#' It uses the `{arrow}` package to process the data out-of-core and saves the
+#' corrected dataset as a .parquet file.
+#'
+#' @param input_path Character. Path to the input .parquet dataset containing surface reflectance data.
+#' @param handoff_path Character. Path to the .csv file containing the handoff coefficients.
+#' @param correction_method Character. The mathematical correction method to apply.
+#' Valid options are `"Roy_deming"`, `"Roy_lm"`, or `"Gardner_poly"`. These correspond
+#' to Roy method with Deming regression, Roy with ordinary least squares regression,
+#' or Gardner method with quadratic relationship.
+#' @param sat_target Character. The target satellite mission to harmonize the data to.
+#' Valid options are `"LS7"` or `"LS8"`.
+#' @param algal_mask Logical. If TRUE, the algal mask version of the handoff (DSWE1a)
+#' will used. Otherwise DSWE1 (i.e., FALSE).
+#' @param save_location Character. The destination file path for the corrected .parquet file.
+#' Must end in `".parquet"`.
+#'
+#' @return Invisibly returns the `save_location` character string.
 #'
 #' @importFrom readr read_csv
 #' @importFrom dplyr case_when mutate filter select left_join if_else any_of
@@ -422,6 +438,9 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#'
+#' }
 apply_handoffs <- function(input_path, handoff_path, correction_method,
                            sat_target, algal_mask, save_location){
   # Confirm use of correction_method
@@ -430,6 +449,16 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
       paste0(
         "Input for {.arg correction_method} argument is not valid. Must be ",
         "{.val Roy_deming}, {.val Roy_lm}, or {.val Gardner_poly}"
+      ), call = NULL)
+
+  }
+
+  # Confirm use of sat_target
+  if(!sat_target %in% c("LS7", "LS8")){
+    cli::cli_abort(
+      paste0(
+        "Input for {.arg sat_target} argument is not valid. Must be ",
+        "{.val LS7} or {.val LS8}"
       ), call = NULL)
 
   }

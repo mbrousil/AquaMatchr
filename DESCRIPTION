@@ -25,7 +25,9 @@ Imports:
     EDIutils,
     magrittr,
     purrr,
-    readr
+    readr,
+    rlang,
+    tidyr
 Suggests: 
     knitr,
     rmarkdown,

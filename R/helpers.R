@@ -20,9 +20,16 @@ ask_user <- function(algal_mask, which_sr, file_message) {
   # Build the options for text to show user
   if (which_sr %in% c("lakeSR", "siteSR")) {
     algal_status <- if (algal_mask) "DSWE1a" else "DSWE1"
-    description <- "One or more files for the {.val {which_sr}} version {.val {algal_status}} appear to already exist in the download location. Would you like to continue downloading and overwrite?"
+    description <- paste0(
+      "One or more files for the {.val {which_sr}} version {.val {algal_status}}",
+      " appear to already exist in the download location. Would you like to",
+      " continue downloading and overwrite?"
+    )
   } else {
-    description <- "The {.val {file_message}} file appears to already exist in the download location. Would you like to continue downloading and overwrite?"
+    description <- paste0(
+      "The {.val {file_message}} file appears to already exist in",
+      " the download location. Would you like to continue downloading and overwrite?"
+    )
   }
 
   question <- "[yes/no] > "
@@ -84,7 +91,12 @@ construct_id <- function(identifier, version){
     # Confirm that this ID works and export it if it does
     test_id <- try(EDIutils::read_data_entity_names(package_id), silent = TRUE)
     if(inherits(test_id, "try-error")) {
-      cli::cli_abort("The package ID does not seem to exist in EDI. Please check that the {.arg identifier} and {.arg version} are accurate.")
+      cli::cli_abort(
+        paste0(
+          "The package ID does not seem to exist in EDI.",
+          " Please check that the {.arg identifier} and {.arg version} are accurate."
+        )
+      )
     } else {
       return(package_id)
     }
@@ -98,7 +110,12 @@ construct_id <- function(identifier, version){
 
     test_id <- try(EDIutils::read_data_entity_names(package_id), silent = TRUE)
     if(inherits(test_id, "try-error")) {
-      cli::cli_abort("The package ID does not seem to exist in EDI. Please check that the {.arg identifier} and {.arg version} are accurate.")
+      cli::cli_abort(
+        paste0(
+          "The package ID does not seem to exist in EDI.",
+          " Please check that the {.arg identifier} and {.arg version} are accurate."
+        )
+      )
     } else {
       return(package_id)
     }
@@ -106,7 +123,9 @@ construct_id <- function(identifier, version){
     # If something unexpected, say so:
   } else {
 
-    cli::cli_abort("Unexpected input to {.arg version} argument. Please use {.val newest} or an integer value.")
+    cli::cli_abort(
+      "Unexpected input to {.arg version} argument. Please use {.val newest} or an integer value."
+    )
 
   }
 

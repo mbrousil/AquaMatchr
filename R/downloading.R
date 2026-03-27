@@ -28,6 +28,7 @@
 #' @return A named list where each item is a tibble containing a dataset.
 #' @export
 #'
+#' @importFrom cli cli_alert_info cli_abort
 #' @importFrom purrr map walk
 #' @importFrom EDIutils read_data_package_citation read_data_entity_names read_data_entity list_data_package_revisions
 #' @importFrom readr read_csv write_csv
@@ -53,7 +54,11 @@ download_parameters <- function(parameters, version = "newest"){
 
   # Make sure parameters contains intended options
   if(!all(parameters %in% unique(param_metadata$param))){
-    stop("The provided input for the parameters argument does not match the available options. Please check case and spelling.")
+    cli::cli_abort(
+      paste0(
+        "The provided input for the parameters argument does not match the ",
+        "available options. Please check case and spelling.")
+    )
   }
 
   # Keep what we need
@@ -68,15 +73,15 @@ download_parameters <- function(parameters, version = "newest"){
                  param_id <- construct_id(identifier = .x$identifier, version = version)
 
                  # Suggest citation
-                 message(
-                   switch(.x$param,
-                          "chla" = "Chlorophyll",
-                          "doc" = "Dissolved organic carbon",
-                          "sdd" = "Secchi disk depth",
-                          "tss" = "Total suspended solids"),
-                   " recommended citation: ",
-                   EDIutils::read_data_package_citation(packageId = param_id)
-                 )
+                 param_name <- switch(.x$param,
+                                      "chla" = "Chlorophyll",
+                                      "doc" = "Dissolved organic carbon",
+                                      "sdd" = "Secchi disk depth",
+                                      "tss" = "Total suspended solids")
+
+                 param_citation <- EDIutils::read_data_package_citation(packageId = param_id)
+
+                 cli::cli_alert_info("{.strong {param_name}} recommended citation: {.emph {param_citation}}")
 
                  # EDI entity ID (specific file to download)
                  entity_id <- EDIutils::read_data_entity_names(packageId = param_id) %>%
@@ -133,7 +138,12 @@ download_riverSR <- function(save_location, timeout_length = 4000){
   if(file.exists(out_file)){
     cli::cli_alert_success("Download complete.")
     cli::cli_alert_info(
-      "RiverSR recommended citation: John Gardner, Xiao Yang, Simon Topp, Matthew Ross, Tamlin Pavelsky, & Elizabeth Altenau. (2020). River Surface Reflectance Database (RiverSR) (v1.1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.4304567. Accessed {Sys.Date()}."
+      paste0(
+        "RiverSR recommended citation: John Gardner, Xiao Yang, Simon Topp, Matthew Ross,",
+        " Tamlin Pavelsky, & Elizabeth Altenau. (2020). River Surface Reflectance",
+        " Database (RiverSR) (v1.1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.4304567.",
+        " Accessed {Sys.Date()}."
+      )
     )
     return(invisible(out_file))
   } else {
