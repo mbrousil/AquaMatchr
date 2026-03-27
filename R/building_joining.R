@@ -240,7 +240,7 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #'
 #' @examples
 #' \dontrun{
-#' # Define paths to downloaded and stacked data
+#' # Define theoretical paths to downloaded and stacked data
 #' wqp_data <- "data/chla_harmonized.feather"
 #' sr_stacked <- "data/siteSR_DSWE1_full_concatenation.feather"
 #' sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
@@ -411,7 +411,14 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' `match_siteSR_to_WQP()`).
 #'
 #' It uses the `{arrow}` package to process the data out-of-core and saves the
-#' corrected dataset as a .parquet file. New columns are added
+#' corrected dataset as a .parquet file.
+#'
+#' New columns are added for each corrected band and named based on the original
+#' source column. For example, the corrected (relative to Landsat 7) version of
+#' the `med_Blue` column would be named `blue_corr_7`. A flag column (e.g.,
+#' `flag_blue_7`) is also included for each new column and contains `"extreme value"`
+#' if the original median value (e.g., `med_Blue`) fell outside of the min/max
+#' range used in calculating the handoff coefficient for the selected method.
 #'
 #' @param input_path Character. Path to the input .parquet dataset containing surface reflectance data.
 #' @param handoff_path Character. Path to the .csv file containing the handoff coefficients.
@@ -439,7 +446,19 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #'
 #' @examples
 #' \dontrun{
+#' # Define theoretical paths to downloaded and stacked data
+#' input_file_path <- "data/chla_siteSR_DSWE1_matchups.parquet"
+#' handoff_file_path <- "data/lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+#' out_file_path <- "data/chla_siteSR_DSWE1_matchups_corrected.parquet"
 #'
+#' apply_handoffs(
+#'   input_path = input_file_path,
+#'   handoff_path = handoff_file_path,
+#'   correction_method = "Gardner_poly",
+#'   sat_target = "LS7",
+#'   algal_mask = FALSE,
+#'   save_location = out_file_path)
+#' )
 #' }
 apply_handoffs <- function(input_path, handoff_path, correction_method,
                            sat_target, algal_mask, save_location){
@@ -590,7 +609,7 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
               .default = NA_real_
             ),
             # Flags indicate that the median was outside of the min/max range used
-            # in definining the handoff
+            # in defining the handoff
             !!flag_col := dplyr::if_else(
               (!!sym(med_col) <= !!sym(max_col) & !!sym(med_col) >= !!sym(min_col)) | is.na(!!sym(max_col)),
               NA_character_,
@@ -647,7 +666,7 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
               .default = NA_real_
             ),
             # Flags indicate that the median was outside of the min/max range used
-            # in definining the handoff
+            # in defining the handoff
             !!flag_col := dplyr::if_else(
               (!!sym(med_col) <= !!sym(max_col) & !!sym(med_col) >= !!sym(min_col)) | is.na(!!sym(max_col)),
               NA_character_,

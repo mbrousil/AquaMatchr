@@ -126,7 +126,7 @@ handoff_path <- apply_handoffs(
   correction_method = "Gardner_poly",
   sat_target = "LS7",
   algal_mask = FALSE,
-  save_location = file.path(temp_dir, "chla_siteSR_DSWE1_matchups.parquet")
+  save_location = file.path(temp_dir, "chla_siteSR_DSWE1_matchups_corrected.parquet")
 )
 ```
 
