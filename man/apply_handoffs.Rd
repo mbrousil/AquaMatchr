@@ -43,10 +43,29 @@ lakeSR, siteSR, matchups of siteSR with \emph{in-situ} data (e.g., outputs from
 \code{match_siteSR_to_WQP()}).
 
 It uses the \code{{arrow}} package to process the data out-of-core and saves the
-corrected dataset as a .parquet file. New columns are added
+corrected dataset as a .parquet file.
+
+New columns are added for each corrected band and named based on the original
+source column. For example, the corrected (relative to Landsat 7) version of
+the \code{med_Blue} column would be named \code{blue_corr_7}. A flag column (e.g.,
+\code{flag_blue_7}) is also included for each new column and contains \code{"extreme value"}
+if the original median value (e.g., \code{med_Blue}) fell outside of the min/max
+range used in calculating the handoff coefficient for the selected method.
 }
 \examples{
 \dontrun{
+# Define theoretical paths to downloaded and stacked data
+input_file_path <- "data/chla_siteSR_DSWE1_matchups.parquet"
+handoff_file_path <- "data/lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+out_file_path <- "data/chla_siteSR_DSWE1_matchups_corrected.parquet"
 
+apply_handoffs(
+  input_path = input_file_path,
+  handoff_path = handoff_file_path,
+  correction_method = "Gardner_poly",
+  sat_target = "LS7",
+  algal_mask = FALSE,
+  save_location = out_file_path)
+)
 }
 }

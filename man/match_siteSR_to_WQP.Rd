@@ -53,7 +53,7 @@ be completed using other filetypes such as .csv or .feather.
 }
 \examples{
 \dontrun{
-# Define paths to downloaded and stacked data
+# Define theoretical paths to downloaded and stacked data
 wqp_data <- "data/chla_harmonized.feather"
 sr_stacked <- "data/siteSR_DSWE1_full_concatenation.feather"
 sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
