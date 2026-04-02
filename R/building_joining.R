@@ -68,11 +68,13 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
     # No info provided = error
     if(is.null(save_location)){
       cli::cli_abort("Please provide a value for {.arg save_location}.", call = NULL)
-    } else if(!is.null(save_location)){
-      save_info <- file.info(save_location)
-      # NA for file.info$isdir = DNE
-      if(is.na(save_info$isdir)){
-        cli::cli_abort("The directory or file at {.arg save_location} ({.file {save_location}}) does not appear to exist.", call = NULL)
+    } else {
+      # If the provided path isn't an existing directory, check if its parent directory exists
+      if(!dir.exists(save_location)){
+        parent_dir <- dirname(save_location)
+        if(!dir.exists(parent_dir)){
+          cli::cli_abort("The target directory {.file {parent_dir}} does not appear to exist. Cannot save to {.arg save_location}.", call = NULL)
+        }
       }
     }
   }
@@ -155,40 +157,39 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
     # Standard name, in case filename not provided by user
     std_out_name <- paste0(input_string, "_full_concatenation.feather")
 
-    # Save with standard filename if a directory is provided
-    if(save_info$isdir){
+    # If the user passed an existing directory path
+    if(dir.exists(save_location)){
       full_out_name <- file.path(save_location, std_out_name)
 
       arrow::write_feather(
         x = unified_sr_dataset,
         sink = full_out_name
       )
-
       cli::cli_alert_success("Saving SR file as {.file {full_out_name}}")
 
-      # A filename is provided, but it's not a .feather file
-    } else if(!(save_info$isdir) & !grepl(pattern = "\\.feather$", x = save_location)){
-      # Write to dir provided, but with a standard name
-      emergency_out_name <- file.path(dirname(save_location), std_out_name)
+    } else {
+      # The user passed a specific file path (since it's not a directory)
 
-      arrow::write_feather(
-        x = unified_sr_dataset,
-        sink = emergency_out_name
-      )
+      # Check if it properly ends in .feather
+      if(grepl(pattern = "\\.feather$", x = save_location)){
 
-      # Alert user
-      cli::cli_alert_info("A non-feather file was indicated by {.arg save_location}. Saving SR file as {.file {emergency_out_name}}")
+        arrow::write_feather(
+          x = unified_sr_dataset,
+          sink = save_location
+        )
+        cli::cli_alert_success("Saving SR file as {.file {save_location}}")
 
-      # A .feather file is provided
-    } else if(!(save_info$isdir) & grepl(pattern = "\\.feather$", x = save_location)){
+      } else {
+        # A file path was provided, but it lacks the .feather extension
+        emergency_out_name <- file.path(dirname(save_location), std_out_name)
 
-      # Write externally as a single .feather file
-      arrow::write_feather(
-        x = unified_sr_dataset,
-        sink = save_location
-      )
+        arrow::write_feather(
+          x = unified_sr_dataset,
+          sink = emergency_out_name
+        )
+        cli::cli_alert_info("A non-feather file was indicated by {.arg save_location}. Saving SR file as {.file {emergency_out_name}}")
+      }
     }
-
   }
 
   return(unified_sr_dataset)
