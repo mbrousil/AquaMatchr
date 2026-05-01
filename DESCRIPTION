@@ -2,10 +2,11 @@ Package: AquaMatchr
 Title: Download, Join, and Analyze AquaMatch Data Products
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Matthew", "Brousil", "matthew.brousil@colostate.edu", role = c("aut", "cre"), comment = c(ORCID = "0000-0001-8229-9445")),
-    person("Matthew", "Ross", "Matt.Ross@colostate.edu", role = "aut"),
-    person("Radical Open Science Syndicate", role = "cph")
-    )
+    person("Matthew", "Brousil", email = "matthew.brousil@colostate.edu", 
+           role = c("aut", "cre"), comment = c(ORCID = "0000-0001-8229-9445")),
+    person("Matthew", "Ross", email = "Matt.Ross@colostate.edu", 
+           role = "aut"),
+    person("Radical Open Science Syndicate", role = "cph"))
 Description: Simplifies the downloading, joining, and analysis of AquaMatch
     data products. Download in-situ and surface reflectance ('SR') data from the
     Environmental Data Initiative ('EDI'), create matchups between in-situ and
@@ -15,14 +16,22 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
+    arrow,
+    cli,
+    DBI,
+    dbplyr,
     dplyr,
-    tidyr
-Suggests: 
+    duckdb,
     EDIutils,
-    knitr,
+    magrittr,
     purrr,
     readr,
+    rlang,
+    tidyr
+Suggests: 
+    knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    zen4R
 VignetteBuilder: knitr
 Config/testthat/edition: 3
