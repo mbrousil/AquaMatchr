@@ -9,8 +9,9 @@ download_parameters(parameters, version = "newest")
 \arguments{
 \item{parameters}{A character vector containing one or more strings of AquaMatch
 parameters to download (written as abbreviations). Options are currently
-"chla" for chlorophyll \emph{a}, "doc" for dissolved organic carbon, "sdd" for
-Secchi disk depth, and "tss" for total suspended solids.}
+"cdom" for Colored dissolved organic matter, "chla" for chlorophyll \emph{a},
+"doc" for dissolved organic carbon, "sdd" for Secchi disk depth, and "tss"
+for total suspended solids.}
 
 \item{version}{Either "newest" or an integer corresponding to the data package
 version to use. Note that in its current form, this function uses a single

@@ -17,8 +17,9 @@
 #'
 #' @param parameters A character vector containing one or more strings of AquaMatch
 #' parameters to download (written as abbreviations). Options are currently
-#' "chla" for chlorophyll *a*, "doc" for dissolved organic carbon, "sdd" for
-#' Secchi disk depth, and "tss" for total suspended solids.
+#' "cdom" for Colored dissolved organic matter, "chla" for chlorophyll *a*,
+#' "doc" for dissolved organic carbon, "sdd" for Secchi disk depth, and "tss"
+#' for total suspended solids.
 #' @param version Either "newest" or an integer corresponding to the data package
 #' version to use. Note that in its current form, this function uses a single
 #' value for every parameter requested. So, if `c("chla", "doc", "sdd")` is provided
@@ -46,6 +47,7 @@ download_parameters <- function(parameters, version = "newest"){
   # harmonized data product
   param_metadata <- dplyr::tribble(
     ~param, ~identifier, ~entity_name,
+    "cdom",  2380,        "cdom_harmonized_final",
     "chla",  1756,        "chla_harmonized_final",
     "doc",   1809,        "doc_harmonized_final",
     "sdd",   1856,        "sdd_harmonized_final",
@@ -77,7 +79,8 @@ download_parameters <- function(parameters, version = "newest"){
                                       "chla" = "Chlorophyll",
                                       "doc" = "Dissolved organic carbon",
                                       "sdd" = "Secchi disk depth",
-                                      "tss" = "Total suspended solids")
+                                      "tss" = "Total suspended solids",
+                                      "cdom" = "Colored dissolved organic matter")
 
                  param_citation <- EDIutils::read_data_package_citation(packageId = param_id)
 
