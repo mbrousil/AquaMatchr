@@ -1,8 +1,8 @@
 ---
-title: "matchups"
+title: "Performing matchups"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{matchups}
+  %\VignetteIndexEntry{Performing matchups}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
