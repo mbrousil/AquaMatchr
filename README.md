@@ -112,7 +112,7 @@ Please use the following citation when citing `AquaMatchr` in your work:
   }
 ```
 
-You can run `r citation("AquaMatchr")` to get the most up-to-date citation when using the package.
+You can run `citation("AquaMatchr")` to get the most up-to-date citation when using the package.
 
 <br>
 
