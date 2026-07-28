@@ -4,25 +4,30 @@
 \alias{download_riverSR}
 \title{Download riverSR dataset from Zenodo}
 \usage{
-download_riverSR(save_location, timeout_length = 4000)
+download_riverSR(save_location, timeout_length = 6000, force = FALSE)
 }
 \arguments{
-\item{save_location}{A string containing the path to the folder where the dataset
+\item{save_location}{A string containing the path to the folder where the datasets
 should be saved.}
 
 \item{timeout_length}{The number of seconds to allow for the download. Defaults
-to 4000 based on tests with the riverSR dataset, but can be adjusted as needed.}
+to 6000 based on tests with the riverSR dataset, but can be adjusted as needed.}
+
+\item{force}{Logical. If FALSE (default), the function skips downloading files that
+already exist in \code{save_location}. If TRUE, existing files will be overwritten.}
 }
 \value{
-A character string containing the local file path to the downloaded RiverSR dataset. Returned invisibly.
+A character string containing the local file paths to the downloaded RiverSR datasets. Returned invisibly.
 }
 \description{
 A function to facilitate downloading of the \href{https://doi.org/10.5281/zenodo.4304567}{riverSR} data product from Zenodo.
+Downloaded files are the surface reflectance database (\code{riverSR_usa_v1.1.feather}) and shapefile of river centerlines (\code{nhdplusv2_modified_v1.0.shp}).
 It is mostly a wrapper around \code{zen4R::download_zenodo()}.
 }
 \note{
-The downloaded file will be large (>13 GB in size), so users will need to
-make sure that they have appropriate available storage for the file.
+The downloaded files will be large (>13 GB in size), so users will need to
+make sure that they have appropriate available storage. During testing,
+downloads took nearly 90 minutes.
 }
 \examples{
 \dontrun{

@@ -104,41 +104,110 @@ download_parameters <- function(parameters, version = "newest"){
 #'
 #' @description
 #' A function to facilitate downloading of the [riverSR](https://doi.org/10.5281/zenodo.4304567) data product from Zenodo.
+#' Downloaded files are the surface reflectance database (`riverSR_usa_v1.1.feather`) and shapefile of river centerlines (`nhdplusv2_modified_v1.0.shp`).
 #' It is mostly a wrapper around `zen4R::download_zenodo()`.
 #'
 #' @note
-#' The downloaded file will be large (>13 GB in size), so users will need to
-#' make sure that they have appropriate available storage for the file.
+#' The downloaded files will be large (>13 GB in size), so users will need to
+#' make sure that they have appropriate available storage. During testing,
+#' downloads took nearly 90 minutes.
 #'
-#' @param save_location A string containing the path to the folder where the dataset
-#'  should be saved.
+#' @param save_location A string containing the path to the folder where the datasets
+#'   should be saved.
 #' @param timeout_length The number of seconds to allow for the download. Defaults
-#' to 4000 based on tests with the riverSR dataset, but can be adjusted as needed.
+#' to 6000 based on tests with the riverSR dataset, but can be adjusted as needed.
+#' @param force Logical. If FALSE (default), the function skips downloading files that
+#' already exist in `save_location`. If TRUE, existing files will be overwritten.
 #'
-#' @importFrom cli cli_alert_info cli_alert_success cli_abort
-#' @return A character string containing the local file path to the downloaded RiverSR dataset. Returned invisibly.
+#' @importFrom cli cli_alert_info cli_alert_success cli_alert_warning cli_abort
+#' @return A character string containing the local file paths to the downloaded RiverSR datasets. Returned invisibly.
 #' @export
 #'
 #' @examples
 #' \dontrun{
 #' download_riverSR(save_location = "~/Downloads/")
 #' }
-download_riverSR <- function(save_location, timeout_length = 4000){
+download_riverSR <- function(save_location, timeout_length = 6000, force = FALSE) {
+
+  # Ensure destination directory exists before running file checks
+  if (!dir.exists(save_location)) {
+    dir.create(save_location, recursive = TRUE)
+  }
 
   # Warning to user
   cli::cli_alert_info(
-    "The size of this file is large (>13GB) so the download will take some time."
+    "The size of these files is large (>13GB) so the download will take some time."
   )
 
-  zen4R::download_zenodo(path = save_location,
-                         doi = "10.5281/zenodo.4304567",
-                         files = "riverSR_usa_v1.1.feather",
-                         timeout = timeout_length)
+  # Define the specific files to download, including all shapefile sidecars
+  target_files <- c(
+    "riverSR_usa_v1.1.feather",
+    "nhdplusv2_modified_v1.0.shp",
+    "nhdplusv2_modified_v1.0.shx",
+    "nhdplusv2_modified_v1.0.dbf",
+    "nhdplusv2_modified_v1.0.prj"
+  )
 
-  # Confirm file saved and report back
-  out_file <- file.path(save_location, "riverSR_usa_v1.1.feather")
+  # Define named file paths upfront so returns are consistent
+  out_files <- file.path(save_location, target_files)
+  names(out_files) <- target_files
 
-  if(file.exists(out_file)){
+  # If force == TRUE, ignore whether there are any existing files of the same name
+  if (isTRUE(force)) {
+    cli::cli_alert_info("Force override enabled. Downloading files...")
+    pre_existing_files <- character(0)
+  } else {
+    # Otherwise, take a snapshot of any pre-existing files
+    pre_existing_files <- out_files[file.exists(out_files)]
+
+    # Early exit if everything is already there
+    if (length(pre_existing_files) == length(target_files)) {
+      cli::cli_alert_success("All files already exist. Use `force = TRUE` to overwrite. Skipping download.")
+      return(invisible(out_files))
+    }
+  }
+
+  # Helper function to clean up files created during a failed run
+  cleanup_partial_files <- function() {
+    current_files <- out_files[file.exists(out_files)]
+    newly_created_files <- setdiff(current_files, pre_existing_files)
+    if (length(newly_created_files) > 0) {
+      cli::cli_alert_warning(
+        "Download interrupted. Removing {length(newly_created_files)} incomplete/corrupted file{?s}..."
+      )
+      unlink(newly_created_files)
+    }
+  }
+
+  # Attempt download, watching for indications of a timeout issue
+  tryCatch({
+    zen4R::download_zenodo(
+      path = save_location,
+      doi = "10.5281/zenodo.4304567",
+      files = target_files,
+      timeout = timeout_length
+    )
+  }, warning = function(w) {
+    # Catch md5sum mismatch, length mismatch, or explicit timeout warnings
+    if (grepl("md5sum|downloaded length|timeout|cannot open URL", w$message, ignore.case = TRUE)) {
+      cleanup_partial_files()
+      cli::cli_abort(c(
+        "x" = "The download failed, timed out, or resulted in corrupted files.",
+        "i" = "Original system warning: {w$message}"
+      ))
+    } else {
+      warning(w)
+    }
+  }, error = function(e) {
+    # Catch any hard errors thrown by zen4R or the internet connection
+    cleanup_partial_files()
+    cli::cli_abort(c(
+      "x" = "A fatal error occurred during the download.",
+      "i" = "Original system error: {e$message}"
+    ))
+  })
+
+  if (all(file.exists(out_files))) {
     cli::cli_alert_success("Download complete.")
     cli::cli_alert_info(
       paste0(
@@ -148,12 +217,16 @@ download_riverSR <- function(save_location, timeout_length = 4000){
         " Accessed {Sys.Date()}."
       )
     )
-    return(invisible(out_file))
+    return(invisible(out_files))
   } else {
-    cli::cli_abort("Output file cannot be found.")
+    # Identify which files failed to download for an informative error message
+    missing_files <- target_files[!file.exists(out_files)]
+    cli::cli_abort(
+      paste0("The following output files cannot be found: ",
+             paste(missing_files, collapse = ", "))
+    )
   }
 }
-
 
 #' Download siteSR dataset from EDI
 #'
