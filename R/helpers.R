@@ -75,6 +75,9 @@ ask_user <- function(algal_mask, which_sr, file_message) {
 #' }
 construct_id <- function(identifier, version){
 
+  # Check authentication before attempting any EDI queries
+  check_edi_auth()
+
   # If the user indicates they want the newest version of the pub, ask EDI for it:
   if(version == "newest") {
 
@@ -357,6 +360,35 @@ check_time_window <- function(time_window) {
       "i" = "Please provide a number followed by a space and a valid unit.",
       "i" = "Examples: {.val 5 days} or {.val 72 hours}"
     ), call = NULL)
+  }
+
+  return(invisible(TRUE))
+}
+
+#' Check EDI authentication status
+#'
+#' Verifies that the user has an active EDI API key or token set in their
+#' environment before triggering API requests that require permissions.
+#'
+#' @keywords internal
+#' @importFrom cli cli_abort
+check_edi_auth <- function() {
+  # Check for active API key or legacy tokens
+  has_key <- Sys.getenv("EDI_API_KEY") != ""
+  has_token <- Sys.getenv("EDI_TOKEN") != "" || Sys.getenv("AUTH_TOKEN") != ""
+
+  if (!has_key && !has_token) {
+    cli::cli_abort(
+      c(
+        "x" = "Authentication is required to query or download data from EDI.",
+        "i" = "Please authenticate before calling this function:",
+        "*" = "Option 1: Run {.code EDIutils::login()}",
+        "*" = "Option 2: Set your API key via {.code Sys.setenv(EDI_API_KEY = 'your_key')}",
+        "i" = "To store it permanently, add {.code EDI_API_KEY='your_key'} to your {.file .Renviron} file.",
+        "i" = "For more details on EDI authentication, see: {.url https://docs.ropensci.org/EDIutils/}"
+      ),
+      call = NULL
+    )
   }
 
   return(invisible(TRUE))
