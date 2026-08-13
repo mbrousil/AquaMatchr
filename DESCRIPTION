@@ -32,6 +32,7 @@ Suggests:
     knitr,
     rmarkdown,
     testthat (>= 3.0.0),
+    withr,
     zen4R
 VignetteBuilder: knitr
 Config/testthat/edition: 3

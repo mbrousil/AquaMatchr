@@ -10,7 +10,6 @@ target_files <- c(
 )
 
 test_that("download_riverSR creates directories and returns correct paths on fresh run", {
-  skip_on_cran()
 
   # Setup nested temp folder to test directory creation
   tmp_parent <- tempfile()
@@ -59,7 +58,6 @@ test_that("download_riverSR skips download when all files already exist (force =
 })
 
 test_that("download_riverSR bypasses existing files when force = TRUE", {
-  skip_on_cran()
   tmp_dir <- tempfile()
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
@@ -88,7 +86,6 @@ test_that("download_riverSR bypasses existing files when force = TRUE", {
 })
 
 test_that("download_riverSR cleans up partial files on timeout without deleting pre-existing files", {
-  skip_on_cran()
   tmp_dir <- tempfile()
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
@@ -122,7 +119,6 @@ test_that("download_riverSR cleans up partial files on timeout without deleting 
 })
 
 test_that("download_riverSR handles hard errors and cleans up partial files", {
-  skip_on_cran()
   tmp_dir <- tempfile()
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
