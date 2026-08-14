@@ -492,7 +492,7 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
       ), call = NULL)
   }
 
-  handoffs <- readr::read_csv(handoff_path)
+  handoffs <- readr::read_csv(handoff_path, show_col_types = FALSE)
 
   # Parse method
   user_method <- gsub(pattern = "Roy_|Gardner_", replacement = "", x = correction_method)

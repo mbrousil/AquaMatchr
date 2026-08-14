@@ -414,3 +414,31 @@ test_that("apply_handoffs computes Gardner polynomial math and handles missing b
   expect_equal(res$green_corr_7, 245)
   expect_true(is.na(res$flag_green_7[1]))
 })
+
+test_that("apply_handoffs() warns users when sat_target is LS8", {
+  # Path to test data snippet
+  input_path <- testthat::test_path("testdata", "chla_7day_siteSR_DSWE1_matchups_snippet.parquet")
+
+  # Path to handoffs test file
+  handoff_csv <- testthat::test_path("testdata", "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv")
+
+  # Temporary out file
+  temp_out <- tempfile(fileext = ".parquet")
+
+  # Run test using above inputs
+  expect_message(
+    apply_handoffs(
+      input_path = input_path,
+      handoff_path = handoff_csv,
+      correction_method = "Gardner_poly",
+      sat_target = "LS8",
+      algal_mask = FALSE,
+      save_location = temp_out
+    ),
+    # Partial string match
+    "Any data that is not from Landsat 7 will be returned as"
+  )
+
+  # Clean up
+  if (file.exists(temp_out)) unlink(temp_out)
+})
