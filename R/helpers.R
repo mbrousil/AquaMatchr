@@ -1,3 +1,10 @@
+#' Helper to allow testing of interactive prompts
+#' @keywords internal
+#' @noRd
+get_user_input <- function(prompt = "") {
+  readline(prompt = prompt)
+}
+
 #' Ask user about redundant downloads
 #'
 #' If planned downloads already exist locally this function is used to prompt
@@ -40,7 +47,7 @@ ask_user <- function(algal_mask, which_sr, file_message) {
   cli::cli_alert_warning(description)
 
   while (TRUE) {
-    user_input <- readline(prompt = question)
+    user_input <- get_user_input(prompt = question)
     # Safety check for case and white space
     user_input <- tolower(trimws(user_input))
 

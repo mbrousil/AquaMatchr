@@ -117,6 +117,34 @@ test_that("build_sr routes saved files correctly based on save_location", {
   expect_true(file.exists(expected_emergency_file))
 })
 
+test_that("build_sr() aborts on invalid save parameters", {
+
+  # save = TRUE but save_location = NULL
+  expect_error(
+    build_sr(
+      which_sr = "siteSR",
+      sr_location = "dummy_dir",
+      algal_mask = FALSE,
+      save = TRUE,
+      save_location = NULL
+    ),
+    regexp = "Please provide a value for"
+  )
+
+  # save_location parent directory does not exist
+  expect_error(
+    build_sr(
+      which_sr = "siteSR",
+      sr_location = "dummy_dir",
+      algal_mask = FALSE,
+      save = TRUE,
+      save_location = "this/fake/path/does/not/exist.feather"
+    ),
+    regexp = "does not appear to exist"
+  )
+
+})
+
 test_that("match_siteSR_to_WQP calculates offsets, filters correctly, and validates extensions", {
   # Set up temporary directory and file paths
   tmp_dir <- tempfile()
@@ -436,7 +464,7 @@ test_that("apply_handoffs() warns users when sat_target is LS8", {
       save_location = temp_out
     ),
     # Partial string match
-    "Any data that is not from Landsat 7 will be returned as"
+    regexp = "Any data that is not from Landsat 7 will be returned as"
   )
 
   # Clean up
