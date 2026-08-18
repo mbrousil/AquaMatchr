@@ -288,6 +288,13 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   check_cols(dataset = raw_siteSR, target_schema = siteSR_schema, file_label = "siteSR file")
 
   # site_list
+  raw_site_list <- arrow::open_dataset(site_list_path, format = "csv")
+  sitelist_schema <- get_arrow_schema(dataset = "sitelist")
+  check_cols(dataset = raw_site_list, target_schema = sitelist_schema, file_label = "site list file")
+
+  # Work around a duckdb bug where it fails to create its temp directory
+  # because the parent "duckdb" folder under tempdir() doesn't exist yet
+  dir.create(file.path(tempdir(), "duckdb"), recursive = TRUE, showWarnings = FALSE)
 
   # Connect to DuckDB
   # Use on.exit() to ensure the connection closes cleanly
