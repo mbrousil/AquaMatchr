@@ -283,6 +283,67 @@ test_that("match_siteSR_to_WQP fails if input files do not exist", {
   )
 })
 
+test_that("match_siteSR_to_WQP() processes CSV WQP data correctly", {
+
+  # Path to test data snippets
+  sitelist_path       <- testthat::test_path("testdata", "sitelist_2025-06-04_snippet.csv")
+  sitesr_parquet_path <- testthat::test_path("testdata", "siteSR_DSWE1_full_concatenation_snippet.parquet")
+  wqp_feather_path    <- testthat::test_path("testdata", "chla_harmonized_snippet.feather")
+
+  # Create paths for temporary files
+  temp_dir            <- tempdir()
+  wqp_csv_path        <- file.path(temp_dir, "wqp_temp.csv")
+  sitesr_feather_path <- file.path(temp_dir, "siteSR_temp.feather")
+  out_parquet_path    <- file.path(temp_dir, "test_matchups_output.parquet")
+
+  # Convert WQP to CSV (to test the CSV pathway) and siteSR to Feather (to match function expectations)
+  wqp_data <- arrow::read_feather(wqp_feather_path)
+  readr::write_csv(wqp_data, wqp_csv_path)
+
+  sitesr_data <- arrow::read_parquet(sitesr_parquet_path)
+  arrow::write_feather(sitesr_data, sitesr_feather_path)
+
+  # Run the function and expect the success message
+  expect_message(
+    result_path <- match_siteSR_to_WQP(
+      wqp_path       = wqp_csv_path,
+      siteSR_path    = sitesr_feather_path,
+      site_list_path = sitelist_path,
+      save_location  = out_parquet_path,
+      time_window    = "5 days"
+    ),
+    regexp = "Successfully wrote"
+  )
+
+  # Verify the file was actually created and is returned silently
+  expect_true(file.exists(out_parquet_path))
+  expect_equal(result_path, out_parquet_path)
+
+  # Clean up temp files
+  unlink(c(wqp_csv_path, sitesr_feather_path, out_parquet_path))
+})
+
+
+test_that("match_siteSR_to_WQP() aborts if save_location is not .parquet", {
+
+  # Dummy paths for the initial existence checks to pass
+  dummy_file <- tempfile()
+  file.create(dummy_file)
+  on.exit(unlink(dummy_file))
+
+  # Function should abort before doing any heavy lifting because of the invalid extension
+  expect_error(
+    match_siteSR_to_WQP(
+      wqp_path       = dummy_file,
+      siteSR_path    = dummy_file,
+      site_list_path = dummy_file,
+      save_location  = "bad_output_name.csv",
+      time_window    = "5 days"
+    ),
+    regexp = "non-parquet file"
+  )
+})
+
 test_that("apply_handoffs enforces argument validation", {
   # Correction method validation
   expect_error(
