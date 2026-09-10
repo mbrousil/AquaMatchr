@@ -147,6 +147,26 @@ The lakeSR files:
 + lakeSR data from Landsat 9 (.feather)
 
 
+## Downloading scene-level metadata
+
+Scene-level metadata is also available as part of siteSR and lakeSR on EDI. The `download_sceneMetadata()` function provides a method to download the metadata for either product based on the `product` argument: 
+
+```{r scene-metadata-download, eval = FALSE}
+download_sceneMetadata(
+  save_location = "path/to/folder/of/choice",
+  product = "siteSR",
+  ask = TRUE
+)
+```
+
+The function downloads two CSV files:
+
++ Reduced column scene-level metadata for Landsat 4, 5, and 7 (.csv)
++ Reduced column scene-level metadata for Landsat 8 and 9 (.csv)
+
+The schemas of the two files are similar but not identical: The Landsat 4/5/7 version has a single `IMAGE_QUALITY` column and `GEOMETRIC_RMSE_VERIFY_QUAD_*` columns, while the Landsat 8/9 version splits `IMAGE_QUALITY` into `IMAGE_QUALITY_OLI` and `IMAGE_QUALITY_TIRS` and has no `QUAD` columns. Both files have a `sat_id` column that can be used to join scene-level metadata back onto siteSR/lakeSR rows, which carry the same sat_id.
+
+
 # Downloading riverSR
 
 The [riverSR dataset](https://doi.org/10.5281/zenodo.4304567) is stored on Zenodo, and due to its large size we download it without bringing it into the R environment. This takes place through the `AquaMatchr::download_riverSR()` function, which requires a download path to be provided by the user. The `timeout_length` for `download_riverSR()` can also be specified but by default is 4,000 seconds, which typically worked in testing for this function (though it may vary throughout time). RiverSR will be downloaded and saved as `"riverSR_usa_v1.1.feather"` in the folder specified in the `save_location` argument.
