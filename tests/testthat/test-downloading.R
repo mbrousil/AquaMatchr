@@ -90,6 +90,23 @@ test_that("download_sceneMetadata rejects an invalid product", {
   )
 })
 
+test_that("download_sceneMetadata aborts when user declines to overwrite files", {
+  tmp <- withr::local_tempdir()
+
+  # Create a file matching a standard output name to trigger the prompt
+  file.create(file.path(tmp, "sceneMetadata_Landsat457.csv"))
+
+  # Mock ask_user to simulate the user typing "no"
+  testthat::local_mocked_bindings(
+    ask_user = function(...) "no"
+  )
+
+  expect_error(
+    download_sceneMetadata(save_location = tmp, product = "siteSR", ask = TRUE),
+    regexp = "Cancelled by user."
+  )
+})
+
 test_that("download_sceneMetadata downloads and writes both scene metadata files (mocked)", {
   # Mock internal auth helper so it passes
   testthat::local_mocked_bindings(
