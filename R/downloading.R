@@ -750,6 +750,9 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
 #'
 #' @return A named character vector containing the local file paths for the
 #' downloaded scene metadata datasets. Returned invisibly.
+#'
+#' @note The downloaded files are large (tens of MB each), so make sure you have
+#' appropriate available storage.
 #' @export
 #'
 #' @importFrom purrr map_chr

@@ -101,10 +101,15 @@ gc()
 
 ## 4. QA and filter the siteSR dataset
 
-Before matching, it's a good idea to screen out low-quality siteSR observations. We'll filter for sites/dates with at least 8 contributing DSWE1 pixels and no cloud contamination in the buffered pixel window (`prop_clouds == 0`). This is not the authoritative QA filtering pipeline, just a starting place.
+Before matching, it's a good idea to screen out low-quality siteSR observations. We'll filter for sites/dates with at least 8 contributing DSWE1 pixels and no cloud contamination in the buffered pixel window (`prop_clouds == 0`). This is not the authoritative QA filtering pipeline, just a starting place. 
+
+Note that we use `open_dataset()` in this step to save memory. This specific example uses ~44GB of RAM if attempted in-memory, so it is possible via `read_feather()` if you have sufficient computing resources.
 
 ```{r qa-filter-pixels-clouds}
-qa_siteSR <- read_feather(file.path(temp_dir, "siteSR_DSWE1_full_concatenation.feather")) %>%
+qa_siteSR <- open_dataset(
+  file.path(temp_dir, "siteSR_DSWE1_full_concatenation.feather"),
+  format = "feather"
+) %>%
   filter(
     pCount_dswe1 >= 8,
     prop_clouds == 0
@@ -133,7 +138,9 @@ good_scenes <- bind_rows(
 # filtered stacked file for downstream steps
 qa_siteSR %>%
   filter(sat_id %in% good_scenes$sat_id) %>%
-  write_feather(sink = file.path(temp_dir, "siteSR_DSWE1_full_concatenation_filtered.feather"))
+  # Write the file output to feather using write_ipc_file() because the data
+  # are not an in-memory R data frame
+  write_ipc_file(sink = file.path(temp_dir, "siteSR_DSWE1_full_concatenation_filtered.feather"))
 ```
 
 ## 5. Perform WQP-siteSR matchups
