@@ -94,7 +94,9 @@ test_that("download_siteSR aborts when user declines to overwrite files", {
   dummy_file <- file.path(tmp_dir, "siteSR_Landsat4_DSWE1_2025-06-06.feather")
   file.create(dummy_file)
 
-  # Mock ask_user to simulate the user typing "no"
+  # Mock ask_user to simulate the user typing "no". Mock construct_id to
+  # skip check_edi_auth(), which would otherwise fail offline before the
+  # function reaches the overwrite prompt.
   testthat::with_mocked_bindings(
     {
       expect_error(
@@ -102,7 +104,8 @@ test_that("download_siteSR aborts when user declines to overwrite files", {
         regexp = "Cancelled by user."
       )
     },
-    ask_user = function(...) "no"
+    ask_user = function(...) "no",
+    construct_id = function(...) "edi.mock.1"
   )
 })
 
@@ -178,7 +181,9 @@ test_that("download_lakeSR aborts when user declines to overwrite files", {
   dummy_file <- file.path(tmp_dir, "lakeSR_Landsat4_DSWE1_2025-06-04.feather")
   file.create(dummy_file)
 
-  # Mock ask_user to simulate the user typing "no"
+  # Mock ask_user to simulate the user typing "no". Mock construct_id to
+  # skip check_edi_auth(), which would otherwise fail offline before the
+  # function reaches the overwrite prompt.
   testthat::with_mocked_bindings(
     {
       expect_error(
@@ -186,7 +191,8 @@ test_that("download_lakeSR aborts when user declines to overwrite files", {
         regexp = "Cancelled by user."
       )
     },
-    ask_user = function(...) "no"
+    ask_user = function(...) "no",
+    construct_id = function(...) "edi.mock.2"
   )
 })
 
