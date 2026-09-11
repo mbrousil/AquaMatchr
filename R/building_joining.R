@@ -260,6 +260,11 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
                                 save_location,
                                 time_window = "5 days"){
 
+  # Ensure save_location is the correct type
+  if(!grepl(pattern = "\\.parquet$", x = save_location)){
+    cli::cli_abort("A non-parquet file was indicated by {.arg save_location}. Please supply a {.val .parquet} name.", call = NULL)
+  }
+
   # Ensure files exist
   if (!file.exists(wqp_path)) cli::cli_abort("File not found at {.arg wqp_path} ({.file {wqp_path}}).", call = NULL)
   if (!file.exists(siteSR_path)) cli::cli_abort("File not found at {.arg siteSR_path} ({.file {siteSR_path}}).", call = NULL)
@@ -288,6 +293,13 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   check_cols(dataset = raw_siteSR, target_schema = siteSR_schema, file_label = "siteSR file")
 
   # site_list
+  raw_site_list <- arrow::open_dataset(site_list_path, format = "csv")
+  sitelist_schema <- get_arrow_schema(dataset = "sitelist")
+  check_cols(dataset = raw_site_list, target_schema = sitelist_schema, file_label = "site list file")
+
+  # Work around a duckdb bug where it fails to create its temp directory
+  # because the parent "duckdb" folder under tempdir() doesn't exist yet
+  dir.create(file.path(tempdir(), "duckdb"), recursive = TRUE, showWarnings = FALSE)
 
   # Connect to DuckDB
   # Use on.exit() to ensure the connection closes cleanly
@@ -344,16 +356,16 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
       by = "siteSR_id"
     ) %>%
     dplyr::mutate(
-      # Cast the date to a Midnight UTC timestamp, then add the minute offset
+      # Cast the date to a naive timestamp, then add the minute offset
       landsat_utc = dplyr::sql("CAST(date AS TIMESTAMP) + INTERVAL 1 SECOND * CAST(utc_seconds_offset AS INTEGER)")
     )
 
   # Build the lazy query using dbplyr
   matchups_lazy <- wqp_db %>%
     dplyr::mutate(
-      # Create UTC time window bounds based on the in-situ data
-      join_min = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") - dplyr::sql(paste0("INTERVAL '", time_window, "'")),
-      join_max = dplyr::sql("CAST(harmonized_utc AS TIMESTAMP)") + dplyr::sql(paste0("INTERVAL '", time_window, "'"))
+      # Create naive time window bounds based on the in-situ data
+      join_min = dplyr::sql(paste0("CAST(harmonized_utc AS TIMESTAMP) - INTERVAL '", time_window, "'")),
+      join_max = dplyr::sql(paste0("CAST(harmonized_utc AS TIMESTAMP) + INTERVAL '", time_window, "'"))
     ) %>%
     dplyr::left_join(
       site_list_prep %>% dplyr::select(loc_id, siteSR_id),
@@ -375,19 +387,12 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 
   # Execute an out-of-memory write directly to Parquet via DuckDB:
 
-  # A filename is provided, but it's not a .parquet file
-  if(!grepl(pattern = "\\.parquet$", x = save_location)){
-    cli::cli_abort("A non-parquet file was indicated by {.arg save_location}. Please supply a {.val .parquet} name.", call = NULL)
-    # A .parquet file is provided
-  } else if(grepl(pattern = "\\.parquet$", x = save_location)){
-
-    # We bypass dbplyr/arrow collection functions to guarantee it never hits R's RAM
-    copy_query <- sprintf(
-      "COPY (%s) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
-      sql_query,
-      save_location
-    )
-  }
+  # We bypass dbplyr/arrow collection functions to guarantee it never hits R's RAM
+  copy_query <- sprintf(
+    "COPY (%s) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
+    sql_query,
+    save_location
+  )
 
   # Execute query and catch number of rows affected by it
   rows_affected <- DBI::dbExecute(con, copy_query)
@@ -492,7 +497,7 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
       ), call = NULL)
   }
 
-  handoffs <- readr::read_csv(handoff_path)
+  handoffs <- readr::read_csv(handoff_path, show_col_types = FALSE)
 
   # Parse method
   user_method <- gsub(pattern = "Roy_|Gardner_", replacement = "", x = correction_method)

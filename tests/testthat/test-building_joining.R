@@ -117,6 +117,34 @@ test_that("build_sr routes saved files correctly based on save_location", {
   expect_true(file.exists(expected_emergency_file))
 })
 
+test_that("build_sr() aborts on invalid save parameters", {
+
+  # save = TRUE but save_location = NULL
+  expect_error(
+    build_sr(
+      which_sr = "siteSR",
+      sr_location = "dummy_dir",
+      algal_mask = FALSE,
+      save = TRUE,
+      save_location = NULL
+    ),
+    regexp = "Please provide a value for"
+  )
+
+  # save_location parent directory does not exist
+  expect_error(
+    build_sr(
+      which_sr = "siteSR",
+      sr_location = "dummy_dir",
+      algal_mask = FALSE,
+      save = TRUE,
+      save_location = "this/fake/path/does/not/exist.feather"
+    ),
+    regexp = "does not appear to exist"
+  )
+
+})
+
 test_that("match_siteSR_to_WQP calculates offsets, filters correctly, and validates extensions", {
   # Set up temporary directory and file paths
   tmp_dir <- tempfile()
@@ -252,6 +280,67 @@ test_that("match_siteSR_to_WQP fails if input files do not exist", {
       save_location = "out.parquet"
     ),
     regexp = "File not found at .*site_list_path.*"
+  )
+})
+
+test_that("match_siteSR_to_WQP() processes CSV WQP data correctly", {
+
+  # Path to test data snippets
+  sitelist_path       <- testthat::test_path("testdata", "sitelist_2025-06-04_snippet.csv")
+  sitesr_parquet_path <- testthat::test_path("testdata", "siteSR_DSWE1_full_concatenation_snippet.parquet")
+  wqp_feather_path    <- testthat::test_path("testdata", "chla_harmonized_snippet.feather")
+
+  # Create paths for temporary files
+  temp_dir            <- tempdir()
+  wqp_csv_path        <- file.path(temp_dir, "wqp_temp.csv")
+  sitesr_feather_path <- file.path(temp_dir, "siteSR_temp.feather")
+  out_parquet_path    <- file.path(temp_dir, "test_matchups_output.parquet")
+
+  # Convert WQP to CSV (to test the CSV pathway) and siteSR to Feather (to match function expectations)
+  wqp_data <- arrow::read_feather(wqp_feather_path)
+  readr::write_csv(wqp_data, wqp_csv_path)
+
+  sitesr_data <- arrow::read_parquet(sitesr_parquet_path)
+  arrow::write_feather(sitesr_data, sitesr_feather_path)
+
+  # Run the function and expect the success message
+  expect_message(
+    result_path <- match_siteSR_to_WQP(
+      wqp_path       = wqp_csv_path,
+      siteSR_path    = sitesr_feather_path,
+      site_list_path = sitelist_path,
+      save_location  = out_parquet_path,
+      time_window    = "5 days"
+    ),
+    regexp = "Successfully wrote"
+  )
+
+  # Verify the file was actually created and is returned silently
+  expect_true(file.exists(out_parquet_path))
+  expect_equal(result_path, out_parquet_path)
+
+  # Clean up temp files
+  unlink(c(wqp_csv_path, sitesr_feather_path, out_parquet_path))
+})
+
+
+test_that("match_siteSR_to_WQP() aborts if save_location is not .parquet", {
+
+  # Dummy paths for the initial existence checks to pass
+  dummy_file <- tempfile()
+  file.create(dummy_file)
+  on.exit(unlink(dummy_file))
+
+  # Function should abort before doing any heavy lifting because of the invalid extension
+  expect_error(
+    match_siteSR_to_WQP(
+      wqp_path       = dummy_file,
+      siteSR_path    = dummy_file,
+      site_list_path = dummy_file,
+      save_location  = "bad_output_name.csv",
+      time_window    = "5 days"
+    ),
+    regexp = "non-parquet file"
   )
 })
 
@@ -413,4 +502,32 @@ test_that("apply_handoffs computes Gardner polynomial math and handles missing b
   res <- arrow::read_parquet(out_path)
   expect_equal(res$green_corr_7, 245)
   expect_true(is.na(res$flag_green_7[1]))
+})
+
+test_that("apply_handoffs() warns users when sat_target is LS8", {
+  # Path to test data snippet
+  input_path <- testthat::test_path("testdata", "chla_7day_siteSR_DSWE1_matchups_snippet.parquet")
+
+  # Path to handoffs test file
+  handoff_csv <- testthat::test_path("testdata", "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv")
+
+  # Temporary out file
+  temp_out <- tempfile(fileext = ".parquet")
+
+  # Run test using above inputs
+  expect_message(
+    apply_handoffs(
+      input_path = input_path,
+      handoff_path = handoff_csv,
+      correction_method = "Gardner_poly",
+      sat_target = "LS8",
+      algal_mask = FALSE,
+      save_location = temp_out
+    ),
+    # Partial string match
+    regexp = "Any data that is not from Landsat 7 will be returned as"
+  )
+
+  # Clean up
+  if (file.exists(temp_out)) unlink(temp_out)
 })
