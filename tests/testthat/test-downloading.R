@@ -255,4 +255,82 @@ test_that("download_lakeSR proceeds when user agrees to overwrite files", {
   expect_type(result, "character")
 })
 
+test_that("download_sceneMetadata rejects an invalid product", {
+  expect_error(
+    download_sceneMetadata(save_location = tempdir(), product = "riverSR")
+  )
+})
 
+test_that("download_sceneMetadata aborts when user declines to overwrite files", {
+  tmp <- withr::local_tempdir()
+
+  # Create a file matching a standard output name to trigger the prompt
+  file.create(file.path(tmp, "sceneMetadata_Landsat457.csv"))
+
+  # Mock ask_user to simulate the user typing "no". Mock construct_id to
+  # skip check_edi_auth(), which would otherwise fail offline before the
+  # function reaches the overwrite prompt.
+  testthat::local_mocked_bindings(
+    ask_user = function(...) "no",
+    construct_id = function(...) "edi.mock.1"
+  )
+
+  expect_error(
+    download_sceneMetadata(save_location = tmp, product = "siteSR", ask = TRUE),
+    regexp = "Cancelled by user."
+  )
+})
+
+test_that("download_sceneMetadata downloads and writes both scene metadata files (mocked)", {
+  # Mock internal auth helper so it passes
+  testthat::local_mocked_bindings(
+    check_edi_auth = function() TRUE
+  )
+
+  tmp <- withr::local_tempdir()
+
+  # Mock the EDIutils functions to intercept the web requests. Each entity
+  # gets distinct fake content so we can confirm the right bytes land in the
+  # right output file.
+  testthat::local_mocked_bindings(
+    list_data_package_revisions = function(...) "1",
+    read_data_package_citation = function(...) "Mock Citation",
+    read_data_entity_names = function(...) {
+      data.frame(
+        entityName = c(
+          "reduced column scene-level metadata for Landsat 4, 5, and 7",
+          "reduced column scene-level metadata for Landsat 8 and 9"
+        ),
+        entityId = c("mock_457", "mock_89"),
+        stringsAsFactors = FALSE
+      )
+    },
+    read_data_entity = function(packageId, entityId, ...) {
+      if (entityId == "mock_457") {
+        charToRaw("sat_id,IMAGE_QUALITY\n1_2_LT05_003048_19841111,9\n")
+      } else {
+        charToRaw("sat_id,IMAGE_QUALITY_OLI\n1_LC08_003048_20130519,9\n")
+      }
+    },
+    .package = "EDIutils"
+  )
+
+  # Run the function
+  result <- download_sceneMetadata(save_location = tmp, product = "siteSR", ask = FALSE)
+
+  # Verify both files were written with the expected names and content
+  expect_type(result, "character")
+  expect_length(result, 2)
+  expect_true(all(file.exists(result)))
+  expect_true(all(
+    c("sceneMetadata_Landsat457.csv", "sceneMetadata_Landsat89.csv") %in% names(result)
+  ))
+
+  ls457 <- readr::read_csv(result[["sceneMetadata_Landsat457.csv"]], show_col_types = FALSE)
+  ls89 <- readr::read_csv(result[["sceneMetadata_Landsat89.csv"]], show_col_types = FALSE)
+
+  expect_true("IMAGE_QUALITY" %in% names(ls457))
+  expect_true("IMAGE_QUALITY_OLI" %in% names(ls89))
+  expect_equal(ls457$sat_id, "1_2_LT05_003048_19841111")
+  expect_equal(ls89$sat_id, "1_LC08_003048_20130519")
+})
