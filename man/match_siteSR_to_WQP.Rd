@@ -13,14 +13,14 @@ match_siteSR_to_WQP(
 )
 }
 \arguments{
-\item{wqp_path}{Path to the file (.csv or .feather) storing the AquaMatch
-parameter data to be joined. Should be data from a single parameter (e.g.,
-chlorophyll \emph{a}), as would be saved after using the \code{download_parameters()}
-function.}
+\item{wqp_path}{Path to the file (.csv, .feather, or .parquet) storing the
+AquaMatch parameter data to be joined. Should be data from a single parameter
+(e.g., chlorophyll \emph{a}), as would be saved after using the
+\code{download_parameters()} function.}
 
-\item{siteSR_path}{Path to the file (.feather) storing the stacked version of
-the siteSR dataset (either DSWE1 or DSWE1a). This is the equivalent of the
-direct output of the \code{build_sr()} function when run with siteSR data.}
+\item{siteSR_path}{Path to the file (.feather or .parquet) storing the stacked
+version of the siteSR dataset (either DSWE1 or DSWE1a). This is the equivalent
+of the direct output of the \code{build_sr()} function when run with siteSR data.}
 
 \item{site_list_path}{Path to the file (.csv) storing the site list for siteSR.
 This is included in downloads done using \code{download_siteSR()}.}
@@ -55,7 +55,7 @@ be completed using other filetypes such as .csv or .feather.
 \dontrun{
 # Define theoretical paths to downloaded and stacked data
 wqp_data <- "data/chla_harmonized.feather"
-sr_stacked <- "data/siteSR_DSWE1_full_concatenation.feather"
+sr_stacked <- "data/siteSR_DSWE1_full_concatenation.parquet"
 sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
 out_file <- "data/chla_siteSR_matchups.parquet"
 

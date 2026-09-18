@@ -14,7 +14,7 @@ apply_handoffs(
 )
 }
 \arguments{
-\item{input_path}{Character. Path to the input .parquet dataset containing surface reflectance data.}
+\item{input_path}{Character. Path to the input .feather or .parquet dataset containing surface reflectance data.}
 
 \item{handoff_path}{Character. Path to the .csv file containing the handoff coefficients.}
 
@@ -65,7 +65,7 @@ apply_handoffs(
   correction_method = "Gardner_poly",
   sat_target = "LS7",
   algal_mask = FALSE,
-  save_location = out_file_path)
+  save_location = out_file_path
 )
 }
 }

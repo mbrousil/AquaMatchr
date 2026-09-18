@@ -5,8 +5,7 @@ test_that("build_sr fails on bad SR input", {
       which_sr = "pondSR",
       sr_location = tempdir(),
       algal_mask = FALSE,
-      save = TRUE,
-      save_location = tempfile(fileext = ".feather")
+      save_location = tempfile(fileext = ".parquet")
     ),
     regexp = "Must be .*lakeSR.* or .*siteSR.*"
   )
@@ -19,8 +18,7 @@ test_that("build_sr fails on non-logical algal mask", {
       sr_location = tempdir(),
       # Not logical
       algal_mask = "False",
-      save = TRUE,
-      save_location = tempfile(fileext = ".feather")
+      save_location = tempfile(fileext = ".parquet")
     ),
     regexp = "Must be .*TRUE.* or .*FALSE.*"
   )
@@ -33,14 +31,13 @@ test_that("build_sr fails on missing input files", {
       # Empty
       sr_location = tempdir(),
       algal_mask = FALSE,
-      save = TRUE,
-      save_location = tempfile(fileext = ".feather")
+      save_location = tempfile(fileext = ".parquet")
     ),
     regexp = "SR files were not detected"
   )
 })
 
-test_that("build_sr routes saved files correctly based on save_location", {
+test_that("build_sr writes stacked data to the provided save_location", {
 
   # Temporary directories for inputs and outputs
   tmp_base <- tempfile()
@@ -50,8 +47,8 @@ test_that("build_sr routes saved files correctly based on save_location", {
   input_dir <- file.path(tmp_base, "input")
   dir.create(input_dir)
 
-  out_dir_fallback <- file.path(tmp_base, "fallback_dir")
-  dir.create(out_dir_fallback)
+  out_dir <- file.path(tmp_base, "out")
+  dir.create(out_dir)
 
   # Create a tiny, valid .feather file for the function to read
   dummy_df <- data.frame(site_id = "lake_1", med_Blue = 500)
@@ -59,8 +56,8 @@ test_that("build_sr routes saved files correctly based on save_location", {
   arrow::write_feather(dummy_df, file.path(input_dir, dummy_feather))
 
 
-  # Scenario A: User provides a specific .feather file path
-  custom_out_file <- file.path(tmp_base, "my_custom_name.feather")
+  # Scenario A: Valid .parquet path in an existing directory
+  custom_out_file <- file.path(out_dir, "my_custom_name.parquet")
 
   # Expect the cli_alert_success message
   expect_message(
@@ -69,63 +66,49 @@ test_that("build_sr routes saved files correctly based on save_location", {
       sr_location = input_dir,
       sr_files = dummy_feather,
       algal_mask = FALSE,
-      save = TRUE,
       save_location = custom_out_file
     ),
-    regexp = "Saving SR file as"
+    regexp = "Successfully wrote"
   )
 
-  # Assert the custom file was created exactly as named
+  # Assert the custom .parquet file was created exactly as named
   expect_true(file.exists(custom_out_file))
 
-  # Scenario B: User provides a directory path
-  expect_message(
-    build_sr(
-      which_sr = "lakeSR",
-      sr_location = input_dir,
-      sr_files = dummy_feather,
-      algal_mask = FALSE,
-      save = TRUE,
-      # Passing the directory, not a file
-      save_location = out_dir_fallback
-    ),
-    regexp = "Saving SR file as"
-  )
-
-  # Assert the standardized fallback name was generated inside the directory
-  expected_fallback_file <- file.path(out_dir_fallback, "lakeSR_DSWE1_full_concatenation.feather")
-  expect_true(file.exists(expected_fallback_file))
-
-  # Scenario C: User provides a specific file path, but it lacks .feather
+  # Scenario B: A save_location that does not end in .parquet
   bad_ext_file <- file.path(tmp_base, "wrong_extension.csv")
 
-  # Expect the cli_alert_info message
-  expect_message(
+  expect_error(
     build_sr(
       which_sr = "lakeSR",
       sr_location = input_dir,
       sr_files = dummy_feather,
       algal_mask = FALSE,
-      save = TRUE,
       save_location = bad_ext_file
     ),
-    regexp = "A non-feather file was indicated"
+    regexp = "Please supply a .*\\.parquet.* name"
   )
 
-  # Assert the standardized fallback name was generated in that target directory
-  expected_emergency_file <- file.path(tmp_base, "lakeSR_DSWE1_full_concatenation.feather")
-  expect_true(file.exists(expected_emergency_file))
+  # Scenario C: A save_location whose parent directory does not exist
+  expect_error(
+    build_sr(
+      which_sr = "lakeSR",
+      sr_location = input_dir,
+      sr_files = dummy_feather,
+      algal_mask = FALSE,
+      save_location = file.path(tmp_base, "nope", "out.parquet")
+    ),
+    regexp = "does not appear to exist"
+  )
 })
 
 test_that("build_sr() aborts on invalid save parameters", {
 
-  # save = TRUE but save_location = NULL
+  # save_location = NULL
   expect_error(
     build_sr(
       which_sr = "siteSR",
       sr_location = "dummy_dir",
       algal_mask = FALSE,
-      save = TRUE,
       save_location = NULL
     ),
     regexp = "Please provide a value for"
@@ -137,8 +120,7 @@ test_that("build_sr() aborts on invalid save parameters", {
       which_sr = "siteSR",
       sr_location = "dummy_dir",
       algal_mask = FALSE,
-      save = TRUE,
-      save_location = "this/fake/path/does/not/exist.feather"
+      save_location = "this/fake/path/does/not/exist.parquet"
     ),
     regexp = "does not appear to exist"
   )
@@ -192,7 +174,6 @@ test_that("match_siteSR_to_WQP calculates offsets, filters correctly, and valida
   testthat::with_mocked_bindings(
     {
       # Scenario A: Bad output extension should fail
-      # (This tests the end-of-script extension check safely)
       expect_error(
         match_siteSR_to_WQP(
           wqp_path = wqp_path,
@@ -291,7 +272,7 @@ test_that("match_siteSR_to_WQP() processes CSV WQP data correctly", {
   wqp_feather_path    <- testthat::test_path("testdata", "chla_harmonized_snippet.feather")
 
   # Create paths for temporary files
-  temp_dir            <- tempdir()
+  temp_dir            <- withr::local_tempdir()
   wqp_csv_path        <- file.path(temp_dir, "wqp_temp.csv")
   sitesr_feather_path <- file.path(temp_dir, "siteSR_temp.feather")
   out_parquet_path    <- file.path(temp_dir, "test_matchups_output.parquet")
@@ -318,9 +299,6 @@ test_that("match_siteSR_to_WQP() processes CSV WQP data correctly", {
   # Verify the file was actually created and is returned silently
   expect_true(file.exists(out_parquet_path))
   expect_equal(result_path, out_parquet_path)
-
-  # Clean up temp files
-  unlink(c(wqp_csv_path, sitesr_feather_path, out_parquet_path))
 })
 
 
@@ -485,7 +463,7 @@ test_that("apply_handoffs computes Gardner polynomial math and handles missing b
   arrow::write_parquet(input_df, in_path)
 
   # Run function
-  # We use expect_warning/message to catch the missing band alerts
+  # We use expect_message to catch the missing band alerts
   expect_message(
     apply_handoffs(
       input_path = in_path,
@@ -512,7 +490,7 @@ test_that("apply_handoffs() warns users when sat_target is LS8", {
   handoff_csv <- testthat::test_path("testdata", "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv")
 
   # Temporary out file
-  temp_out <- tempfile(fileext = ".parquet")
+  temp_out <- withr::local_tempfile(fileext = ".parquet")
 
   # Run test using above inputs
   expect_message(
@@ -527,7 +505,4 @@ test_that("apply_handoffs() warns users when sat_target is LS8", {
     # Partial string match
     regexp = "Any data that is not from Landsat 7 will be returned as"
   )
-
-  # Clean up
-  if (file.exists(temp_out)) unlink(temp_out)
 })

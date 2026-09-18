@@ -4,14 +4,7 @@
 \alias{build_sr}
 \title{Build and save siteSR or lakeSR products from downloaded files}
 \usage{
-build_sr(
-  which_sr,
-  sr_location,
-  algal_mask = NULL,
-  sr_files = NULL,
-  save = FALSE,
-  save_location = NULL
-)
+build_sr(which_sr, sr_location, algal_mask, sr_files = NULL, save_location)
 }
 \arguments{
 \item{which_sr}{String. Options are "siteSR" or "lakeSR", indicating which of
@@ -26,40 +19,31 @@ will be expected in \code{sr_location}. Otherwise DSWE1 is expected (i.e., FALSE
 lakeSR files, like would be saved when running \code{download_lakeSR()} or \code{download_siteSR()}.
 Should \emph{not} include the directory provided in \code{sr_location}.}
 
-\item{save}{Logical. Should the built SR dataset be saved locally? Defaults to FALSE.}
-
-\item{save_location}{String. If save == TRUE, the path to the folder where the
-output file should be saved. If a name ending in ".feather" is provided as part
-of the path then this is the name that the file will be saved with. Otherwise,
-a default name will be used by the function. It will always be a .feather file.
-If a non-feather file is provided, the function will save the file to the directory
-indicated by save_location, but under a different, standardized filename.}
+\item{save_location}{String. The path to the .parquet file that the stacked SR
+dataset should be written to. Must end in ".parquet" or an error will occur.
+The parent directory of the file must already exist.}
 }
 \value{
-An \href{https://arrow.apache.org/docs/r/articles/data_objects.html#tables}{Arrow Table}
-representing the SR dataset.
+The path to the stacked SR dataset, as a .parquet file. (Invisible)
 }
 \description{
 Build and save siteSR or lakeSR products from downloaded files
 }
 \details{
-Reads and stacks siteSR or lakeSR files into a single object (an Arrow Table),
-then optionally exports them to a single local file. The user can provide a
-vector of filenames to the \code{sr_files} argument, which will then be used as
-the input files. If this argument is not used, then the value of \code{which_sr}
-will be used to infer the filenames based on the default outputs of
-\code{download_siteSR()} or \code{download_lakeSR()}.
+Reads and stacks siteSR or lakeSR files into a single .parquet file on disk.
+The user can provide a vector of filenames to the \code{sr_files} argument, which
+will then be used as the input files. If this argument is not used, then the
+value of \code{which_sr} will be used to infer the filenames based on the default
+outputs of \code{download_siteSR()} or \code{download_lakeSR()}.
 
-It is often possible to use Arrow Tables with \code{dplyr} syntax, but users may want
-to read the \href{https://arrow.apache.org/docs/r/articles/data_objects.html#tables}{Apache Arrow documentation on Tables}
+The stacking and writing steps are performed out of memory using the
+\pkg{arrow} and \pkg{duckdb} packages, so the full stacked dataset is never
+loaded into R's
+memory. The output .parquet file can be read "lazily" using
+\code{arrow::open_dataset()}. For more on working with Arrow Datasets, users may
+want to read the \href{https://arrow.apache.org/docs/r/articles/dataset.html}{Apache Arrow documentation on datasets}
 or the \emph{R for Data Science} \href{https://r4ds.hadley.nz/arrow.html#using-dplyr-with-arrow}{chapter on Arrow}
-if these data structures are new to them. We use Arrow Tables because of their
-efficiency and convenience when working with large datasets.
-
-If a file export is requested (i.e., \code{save} is TRUE), then the file is exported
-to a user-specified location. If the user provides a path to a .feather file
-in \code{save_location} then that will be used, otherwise a standardized filename
-will be used and saved to the directory in \code{save_location}.
+if these data structures are new to them.
 }
 \examples{
 \dontrun{
@@ -67,8 +51,7 @@ stacked_siteSR <- build_sr(
   which_sr = "siteSR",
   sr_location = "data/siteSR_raw",
   algal_mask = FALSE,
-  save = TRUE,
-  save_location = "data/siteSR_DSWE1_stacked.feather"
+  save_location = "data/siteSR_DSWE1_stacked.parquet"
 )
 }
 }
