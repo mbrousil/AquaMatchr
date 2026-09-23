@@ -214,6 +214,7 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
 #' @importFrom DBI dbConnect dbDisconnect dbExecute
 #' @importFrom duckdb duckdb
 #' @importFrom cli cli_abort cli_alert_success
+#' @importFrom rlang inject
 #'
 #' @examples
 #' \dontrun{
@@ -279,14 +280,16 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   con <- DBI::dbConnect(duckdb::duckdb())
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
-  # Read datasets lazily via Arrow, injecting the correct schemas
-  wqp_ds <- arrow::open_dataset(
-    sources = wqp_path,
-    format = wqp_format,
-    col_types = get_arrow_schema("wqp")
-  ) %>%
+  # Read datasets lazily via Arrow. col_types is only valid for CSV inputs;
+  # parquet and feather carry their own schema.
+  wqp_args <- list(sources = wqp_path, format = wqp_format)
+  if (wqp_format == "csv") {
+    wqp_args$col_types <- get_arrow_schema("wqp")
+  }
+
+  wqp_ds <- rlang::inject(arrow::open_dataset(!!!wqp_args)) %>%
     # Check for NAs and correct (issue if csv is used, but won't accept null_values
-    # if format is feather)
+    # if format is feather or parquet)
     dplyr::mutate(
       dplyr::across(
         .cols = dplyr::where(is.character),
@@ -296,8 +299,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 
   siteSR_ds <- arrow::open_dataset(
     sources = siteSR_path,
-    format = siteSR_format,
-    col_types = get_arrow_schema("siteSR")
+    format = siteSR_format
   )
 
   site_list_ds <- arrow::open_dataset(

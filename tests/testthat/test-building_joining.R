@@ -1,3 +1,40 @@
+
+# Helpers -----------------------------------------------------------------
+
+# Helpers used with match_siteSR_to_WQP tests:
+# Write a data frame in the requested format
+write_as_format <- function(df, path, format) {
+  switch(
+    format,
+    csv     = readr::write_csv(df, path),
+    feather = arrow::write_feather(df, path),
+    parquet = arrow::write_parquet(df, path)
+  )
+  invisible(path)
+}
+
+# Tiny inputs that produce exactly one matchup with a 5-hour window
+# (same construction as the offsets test: site at -90 longitude,
+# Landsat overpass ~16:12 UTC vs. in-situ noon UTC)
+make_matchup_inputs <- function(dir) {
+  sitelist_path <- file.path(dir, "sitelist.csv")
+  readr::write_csv(
+    data.frame(loc_id = "LOC_1", siteSR_id = "SR_1", WGS84_Longitude = -90),
+    sitelist_path
+  )
+  list(
+    wqp_df = data.frame(
+      MonitoringLocationIdentifier = "LOC_1",
+      harmonized_utc = "2020-01-05 12:00:00"
+    ),
+    siteSR_df = data.frame(siteSR_id = "SR_1", date = "2020-01-05"),
+    sitelist_path = sitelist_path
+  )
+}
+
+
+# Testing -----------------------------------------------------------------
+
 test_that("build_sr fails on bad SR input", {
   expect_error(
     build_sr(
@@ -319,6 +356,83 @@ test_that("match_siteSR_to_WQP() aborts if output_file is not .parquet", {
       time_window    = "5 days"
     ),
     regexp = "non-parquet file"
+  )
+})
+
+
+# Every combination of input formats should give the same matchup
+formats_to_test <- expand.grid(
+  wqp_format    = c("csv", "feather", "parquet"),
+  siteSR_format = c("feather", "parquet"),
+  stringsAsFactors = FALSE
+)
+
+# Iterate through the combinations of wqp_format * siteSR_format and test each
+# combination to ensure that match_siteSR_to_WQP() functions correctly
+for (i in seq_len(nrow(formats_to_test))) {
+  wqp_format    <- formats_to_test$wqp_format[i]
+  siteSR_format <- formats_to_test$siteSR_format[i]
+
+  test_that(
+    paste0("match_siteSR_to_WQP() accepts .", wqp_format, " WQP and .", siteSR_format, " siteSR input"),
+    {
+      tmp_dir <- withr::local_tempdir()
+      inputs  <- make_matchup_inputs(tmp_dir)
+
+      wqp_path    <- file.path(tmp_dir, paste0("wqp.", wqp_format))
+      siteSR_path <- file.path(tmp_dir, paste0("siteSR.", siteSR_format))
+      out_path    <- file.path(tmp_dir, "matchups.parquet")
+
+      write_as_format(inputs$wqp_df, wqp_path, wqp_format)
+      write_as_format(inputs$siteSR_df, siteSR_path, siteSR_format)
+
+      testthat::with_mocked_bindings(
+        {
+          expect_message(
+            result_path <- match_siteSR_to_WQP(
+              wqp_path       = wqp_path,
+              siteSR_path    = siteSR_path,
+              site_list_path = inputs$sitelist_path,
+              output_file    = out_path,
+              time_window    = "5 hours"
+            ),
+            regexp = "Successfully wrote 1 matchups"
+          )
+        },
+        # Skip strict schema checks so the tiny dummy data is allowed
+        get_arrow_schema = function(...) NULL,
+        check_cols = function(...) TRUE
+      )
+
+      expect_equal(result_path, out_path)
+      expect_true(file.exists(out_path))
+
+      # Same DuckDB math regardless of input format
+      res <- arrow::read_parquet(out_path)
+      expect_equal(nrow(res), 1)
+      expect_equal(res$time_diff[1], -0.175)
+    }
+  )
+}
+
+test_that("match_siteSR_to_WQP() aborts when siteSR_path is not .feather or .parquet", {
+  tmp_dir <- withr::local_tempdir()
+
+  # Files must exist so the function gets past the file.exists() checks
+  wqp_path      <- file.path(tmp_dir, "wqp.feather")
+  bad_siteSR    <- file.path(tmp_dir, "siteSR.csv")
+  sitelist_path <- file.path(tmp_dir, "sitelist.csv")
+  file.create(wqp_path, bad_siteSR, sitelist_path)
+
+  expect_error(
+    match_siteSR_to_WQP(
+      wqp_path       = wqp_path,
+      siteSR_path    = bad_siteSR,
+      site_list_path = sitelist_path,
+      output_file    = file.path(tmp_dir, "out.parquet"),
+      time_window    = "5 days"
+    ),
+    regexp = "unsupported format for this argument"
   )
 })
 
