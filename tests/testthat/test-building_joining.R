@@ -425,6 +425,7 @@ test_that("apply_handoffs computes Roy linear math and flags extreme values", {
   expect_equal(res$flag_blue_7[2], "extreme value")
   expect_true(is.na(res$flag_blue_7[3]))
 })
+
 test_that("apply_handoffs() gives the same results for .feather and .parquet input", {
   tmp_dir <- withr::local_tempdir()
 
@@ -472,7 +473,7 @@ test_that("apply_handoffs() gives the same results for .feather and .parquet inp
       correction_method = "Roy_deming",
       sat_target = "LS7",
       algal_mask = FALSE,
-      save_location = out_feather
+      output_file = out_feather
     ),
     regexp = "Successfully wrote SR file"
   )
@@ -485,20 +486,16 @@ test_that("apply_handoffs() gives the same results for .feather and .parquet inp
       correction_method = "Roy_deming",
       sat_target = "LS7",
       algal_mask = FALSE,
-      save_location = out_parquet
+      output_file = out_parquet
     )
   )
 
   res_feather <- arrow::read_parquet(out_feather)
   res_parquet <- arrow::read_parquet(out_parquet)
 
-  # Feather input follows the same math and flagging as before
-  expect_equal(res_feather$blue_corr_7, c(410, 1210, 300))
-  expect_true(is.na(res_feather$flag_blue_7[1]))
-  expect_equal(res_feather$flag_blue_7[2], "extreme value")
-  expect_true(is.na(res_feather$flag_blue_7[3]))
-
-  # ...and matches what parquet input produces
+  # Output should be identical regardless of input format. Math and flag
+  # assertions live in following test above:
+  # "apply_handoffs computes Roy linear math and flags extreme values"
   expect_equal(res_feather, res_parquet)
 })
 
@@ -517,7 +514,7 @@ test_that("apply_handoffs() aborts on an input_path that is not .feather or .par
       correction_method = "Roy_deming",
       sat_target = "LS7",
       algal_mask = FALSE,
-      save_location = file.path(tmp_dir, "out.parquet")
+      output_file = file.path(tmp_dir, "out.parquet")
     ),
     regexp = "unsupported format for this argument"
   )
