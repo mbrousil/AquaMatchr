@@ -425,6 +425,103 @@ test_that("apply_handoffs computes Roy linear math and flags extreme values", {
   expect_equal(res$flag_blue_7[2], "extreme value")
   expect_true(is.na(res$flag_blue_7[3]))
 })
+test_that("apply_handoffs() gives the same results for .feather and .parquet input", {
+  tmp_dir <- withr::local_tempdir()
+
+  handoff_path <- file.path(tmp_dir, "handoffs.csv")
+
+  # Dummy handoff data (Roy Deming, LS5 to LS7)
+  # Math check: intercept(10) + slope(2) * input
+  handoff_df <- data.frame(
+    correction = "Roy",
+    method = "deming",
+    dswe = "DSWE1",
+    sat_corr = "LS5",
+    sat_to = "LS7",
+    band = "med_Blue",
+    intercept = 10,
+    slope = 2,
+    B1 = NA,
+    B2 = NA,
+    min_in_val = 100,
+    max_in_val = 500
+  )
+  readr::write_csv(handoff_df, handoff_path)
+
+  # Dummy SR data
+  # Row 1: LT04 (mapped to LS5). Valid range. 10 + 2(200) = 410.
+  # Row 2: LT05 (mapped to LS5). Extreme value (600 > 500). 10 + 2(600) = 1210.
+  # Row 3: LE07 (self-target). Bypasses math and returns original 300.
+  input_df <- data.frame(
+    mission = c("LT04", "LT05", "LE07"),
+    med_Blue = c(200, 600, 300)
+  )
+
+  in_feather <- file.path(tmp_dir, "input.feather")
+  in_parquet <- file.path(tmp_dir, "input.parquet")
+  arrow::write_feather(input_df, in_feather)
+  arrow::write_parquet(input_df, in_parquet)
+
+  out_feather <- file.path(tmp_dir, "output_from_feather.parquet")
+  out_parquet <- file.path(tmp_dir, "output_from_parquet.parquet")
+
+  expect_message(
+    result_path <- apply_handoffs(
+      input_path = in_feather,
+      handoff_path = handoff_path,
+      correction_method = "Roy_deming",
+      sat_target = "LS7",
+      algal_mask = FALSE,
+      save_location = out_feather
+    ),
+    regexp = "Successfully wrote SR file"
+  )
+  expect_true(file.exists(out_feather))
+
+  suppressMessages(
+    apply_handoffs(
+      input_path = in_parquet,
+      handoff_path = handoff_path,
+      correction_method = "Roy_deming",
+      sat_target = "LS7",
+      algal_mask = FALSE,
+      save_location = out_parquet
+    )
+  )
+
+  res_feather <- arrow::read_parquet(out_feather)
+  res_parquet <- arrow::read_parquet(out_parquet)
+
+  # Feather input follows the same math and flagging as before
+  expect_equal(res_feather$blue_corr_7, c(410, 1210, 300))
+  expect_true(is.na(res_feather$flag_blue_7[1]))
+  expect_equal(res_feather$flag_blue_7[2], "extreme value")
+  expect_true(is.na(res_feather$flag_blue_7[3]))
+
+  # ...and matches what parquet input produces
+  expect_equal(res_feather, res_parquet)
+})
+
+test_that("apply_handoffs() aborts on an input_path that is not .feather or .parquet", {
+  tmp_dir <- withr::local_tempdir()
+
+  # Files must exist so the function gets past any file checks
+  bad_input <- file.path(tmp_dir, "input.csv")
+  handoff_path <- file.path(tmp_dir, "handoffs.csv")
+  file.create(bad_input, handoff_path)
+
+  expect_error(
+    apply_handoffs(
+      input_path = bad_input,
+      handoff_path = handoff_path,
+      correction_method = "Roy_deming",
+      sat_target = "LS7",
+      algal_mask = FALSE,
+      save_location = file.path(tmp_dir, "out.parquet")
+    ),
+    regexp = "unsupported format for this argument"
+  )
+})
 
 test_that("apply_handoffs computes Gardner polynomial math and handles missing bands", {
   tmp_dir <- tempfile()
