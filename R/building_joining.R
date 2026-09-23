@@ -152,7 +152,7 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
   # Register the lazy Arrow Dataset as a DuckDB virtual table
-  arrow::to_duckdb(unified_sr_dataset, con, "sr_tbl")
+  sr_tbl <- arrow::to_duckdb(unified_sr_dataset, con, "sr_tbl")
 
   # Execute an out-of-memory write directly to Parquet via DuckDB. We bypass
   # materialization in R entirely so the stacked dataset never hits RAM.
