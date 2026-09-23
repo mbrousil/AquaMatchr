@@ -8,7 +8,7 @@ match_siteSR_to_WQP(
   wqp_path,
   siteSR_path,
   site_list_path,
-  save_location,
+  output_file,
   time_window = "5 days"
 )
 }
@@ -25,7 +25,7 @@ of the direct output of the \code{build_sr()} function when run with siteSR data
 \item{site_list_path}{Path to the file (.csv) storing the site list for siteSR.
 This is included in downloads done using \code{download_siteSR()}.}
 
-\item{save_location}{String. The path where a parquet file containing the output
+\item{output_file}{String. The path where a parquet file containing the output
 should be saved. If the string does not end in ".parquet" then an error will occur.}
 
 \item{time_window}{A string indicating the amount of time on either side of the
@@ -64,7 +64,7 @@ match_siteSR_to_WQP(
   wqp_path = wqp_data,
   siteSR_path = sr_stacked,
   site_list_path = sr_sites,
-  save_location = out_file,
+  output_file = out_file,
   time_window = "5 days"
 )
 }

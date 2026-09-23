@@ -24,7 +24,7 @@
 #' @param sr_files Optional. A vector of filenames (five at most) with siteSR or
 #' lakeSR files, like would be saved when running `download_lakeSR()` or `download_siteSR()`.
 #' Should *not* include the directory provided in `sr_location`.
-#' @param save_location String. The path to the .parquet file that the stacked SR
+#' @param output_file String. The path to the .parquet file that the stacked SR
 #' dataset should be written to. Must end in ".parquet" or an error will occur.
 #' The parent directory of the file must already exist.
 #'
@@ -43,11 +43,11 @@
 #'   which_sr = "siteSR",
 #'   sr_location = "data/siteSR_raw",
 #'   algal_mask = FALSE,
-#'   save_location = "data/siteSR_DSWE1_stacked.parquet"
+#'   output_file = "data/siteSR_DSWE1_stacked.parquet"
 #' )
 #' }
 build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
-                     save_location){
+                     output_file){
   # Confirm correct use of SR tag
   if(!(which_sr == "lakeSR" | which_sr == "siteSR")){
     cli::cli_abort("Input for {.arg which_sr} argument is not valid. Must be {.val lakeSR} or {.val siteSR}.", call = NULL)
@@ -58,20 +58,20 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
     cli::cli_abort("Input for {.arg algal_mask} argument is not a logical value. Must be {.val TRUE} or {.val FALSE}.", call = NULL)
   }
 
-  # Confirm save_location was provided as a single string
-  if(is.null(save_location) || !is.character(save_location) || length(save_location) != 1){
-    cli::cli_abort("Please provide a value for {.arg save_location} as a single character string ending in {.val .parquet}.", call = NULL)
+  # Confirm output_file was provided as a single string
+  if(is.null(output_file) || !is.character(output_file) || length(output_file) != 1){
+    cli::cli_abort("Please provide a value for {.arg output_file} as a single character string ending in {.val .parquet}.", call = NULL)
   }
 
   # Confirm .parquet output
-  if(!grepl(pattern = "\\.parquet$", x = save_location)){
-    cli::cli_abort("A non-parquet file was indicated by {.arg save_location}. Please supply a {.val .parquet} name.", call = NULL)
+  if(!grepl(pattern = "\\.parquet$", x = output_file)){
+    cli::cli_abort("A non-parquet file was indicated by {.arg output_file}. Please supply a {.val .parquet} name.", call = NULL)
   }
 
   # If the output file's parent directory doesn't exist, we can't write there
-  parent_dir <- dirname(save_location)
+  parent_dir <- dirname(output_file)
   if(!dir.exists(parent_dir)){
-    cli::cli_abort("The target directory {.file {parent_dir}} does not appear to exist. Cannot save to {.arg save_location}.", call = NULL)
+    cli::cli_abort("The target directory {.file {parent_dir}} does not appear to exist. Cannot save to {.arg output_file}.", call = NULL)
   }
 
   # Potential default SR path names
@@ -160,15 +160,15 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
     con,
     sprintf(
       "COPY (SELECT * FROM sr_tbl) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
-      save_location
+      output_file
     )
   )
 
   cli::cli_alert_success(
-    "Successfully wrote {format(rows_affected, big.mark = ',')} SR rows to {.file {save_location}}."
+    "Successfully wrote {format(rows_affected, big.mark = ',')} SR rows to {.file {output_file}}."
   )
 
-  return(invisible(save_location))
+  return(invisible(output_file))
 }
 
 
@@ -202,7 +202,7 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
 #' @param time_window A string indicating the amount of time on either side of the
 #' in-situ measurements that should be used to match to siteSR overpass times, for
 #' example: "2 days", "72 hours". Defaults to "5 days".
-#' @param save_location String. The path where a parquet file containing the output
+#' @param output_file String. The path where a parquet file containing the output
 #' should be saved. If the string does not end in ".parquet" then an error will occur.
 #' @return The path to the joined dataset. (Invisible)
 #' @export
@@ -228,17 +228,17 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
 #'   wqp_path = wqp_data,
 #'   siteSR_path = sr_stacked,
 #'   site_list_path = sr_sites,
-#'   save_location = out_file,
+#'   output_file = out_file,
 #'   time_window = "5 days"
 #' )
 #' }
 match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
-                                save_location,
+                                output_file,
                                 time_window = "5 days"){
 
-  # Ensure save_location is the correct type
-  if(!grepl(pattern = "\\.parquet$", x = save_location)){
-    cli::cli_abort("A non-parquet file was indicated by {.arg save_location}. Please supply a {.val .parquet} name.", call = NULL)
+  # Ensure output_file is the correct type
+  if(!grepl(pattern = "\\.parquet$", x = output_file)){
+    cli::cli_abort("A non-parquet file was indicated by {.arg output_file}. Please supply a {.val .parquet} name.", call = NULL)
   }
 
   # Ensure files exist
@@ -364,7 +364,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   copy_query <- sprintf(
     "COPY (%s) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
     sql_query,
-    save_location
+    output_file
   )
 
   # Execute query and catch number of rows affected by it
@@ -372,11 +372,11 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 
   # Alert success to user
   cli::cli_alert_success(
-    "Successfully wrote {format(rows_affected, big.mark = ',')} matchups to {.file {save_location}}."
+    "Successfully wrote {format(rows_affected, big.mark = ',')} matchups to {.file {output_file}}."
   )
 
   # Return path to file, quietly
-  return(invisible(save_location))
+  return(invisible(output_file))
 }
 
 
@@ -409,10 +409,10 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' Valid options are `"LS7"` or `"LS8"`.
 #' @param algal_mask Logical. If TRUE, the algal mask version of the handoff (DSWE1a)
 #' will used. Otherwise DSWE1 (i.e., FALSE).
-#' @param save_location Character. The destination file path for the corrected .parquet file.
+#' @param output_file Character. The destination file path for the corrected .parquet file.
 #' Must end in `".parquet"`.
 #'
-#' @return Invisibly returns the `save_location` character string.
+#' @return Invisibly returns the `output_file` character string.
 #'
 #' @importFrom readr read_csv
 #' @importFrom dplyr case_when mutate filter select left_join if_else any_of
@@ -436,11 +436,11 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #'   correction_method = "Gardner_poly",
 #'   sat_target = "LS7",
 #'   algal_mask = FALSE,
-#'   save_location = out_file_path
+#'   output_file = out_file_path
 #' )
 #' }
 apply_handoffs <- function(input_path, handoff_path, correction_method,
-                           sat_target, algal_mask, save_location){
+                           sat_target, algal_mask, output_file){
   # Confirm use of correction_method
   if(!correction_method %in% c("Roy_deming", "Roy_lm", "Gardner_poly")){
     cli::cli_abort(
@@ -462,10 +462,10 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
   }
 
   # Confirm .parquet output
-  if(!grepl(pattern = "\\.parquet$", x = save_location)){
+  if(!grepl(pattern = "\\.parquet$", x = output_file)){
     cli::cli_abort(
       paste0(
-        "A non-parquet file was indicated by {.arg save_location}. Please supply a ",
+        "A non-parquet file was indicated by {.arg output_file}. Please supply a ",
         "{.val .parquet} name."
       ), call = NULL)
   }
@@ -669,14 +669,14 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
     }
   }
   # Execute query and write to disk
-  arrow::write_parquet(input_w_handoffs, sink = save_location)
+  arrow::write_parquet(input_w_handoffs, sink = output_file)
 
   # Alert success to user
   cli::cli_alert_success(
-    "Successfully wrote SR file with handoffs to {.file {save_location}}."
+    "Successfully wrote SR file with handoffs to {.file {output_file}}."
   )
 
   # Return path to file, quietly
-  return(invisible(save_location))
+  return(invisible(output_file))
 
 }

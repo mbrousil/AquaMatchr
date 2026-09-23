@@ -4,7 +4,7 @@
 \alias{build_sr}
 \title{Build and save siteSR or lakeSR products from downloaded files}
 \usage{
-build_sr(which_sr, sr_location, algal_mask, sr_files = NULL, save_location)
+build_sr(which_sr, sr_location, algal_mask, sr_files = NULL, output_file)
 }
 \arguments{
 \item{which_sr}{String. Options are "siteSR" or "lakeSR", indicating which of
@@ -19,7 +19,7 @@ will be expected in \code{sr_location}. Otherwise DSWE1 is expected (i.e., FALSE
 lakeSR files, like would be saved when running \code{download_lakeSR()} or \code{download_siteSR()}.
 Should \emph{not} include the directory provided in \code{sr_location}.}
 
-\item{save_location}{String. The path to the .parquet file that the stacked SR
+\item{output_file}{String. The path to the .parquet file that the stacked SR
 dataset should be written to. Must end in ".parquet" or an error will occur.
 The parent directory of the file must already exist.}
 }
@@ -51,7 +51,7 @@ stacked_siteSR <- build_sr(
   which_sr = "siteSR",
   sr_location = "data/siteSR_raw",
   algal_mask = FALSE,
-  save_location = "data/siteSR_DSWE1_stacked.parquet"
+  output_file = "data/siteSR_DSWE1_stacked.parquet"
 )
 }
 }

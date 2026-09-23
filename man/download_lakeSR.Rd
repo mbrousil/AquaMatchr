@@ -5,14 +5,14 @@
 \title{Download lakeSR dataset from EDI}
 \usage{
 download_lakeSR(
-  save_location,
+  download_folder,
   algal_mask = FALSE,
   version = "newest",
   ask = TRUE
 )
 }
 \arguments{
-\item{save_location}{A string containing the path to the folder where the dataset
+\item{download_folder}{A string containing the path to the folder where the dataset
 should be saved.}
 
 \item{algal_mask}{Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
@@ -50,6 +50,6 @@ will need to make sure that they have appropriate available storage for the file
 }
 \examples{
 \dontrun{
-download_lakeSR(save_location = "~/Downloads/", algal_mask = FALSE)
+download_lakeSR(download_folder = "~/Downloads/", algal_mask = FALSE)
 }
 }

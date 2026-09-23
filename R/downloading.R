@@ -111,12 +111,12 @@ download_parameters <- function(parameters, version = "newest"){
 #' make sure that they have appropriate available storage. During testing,
 #' downloads took nearly 90 minutes.
 #'
-#' @param save_location A string containing the path to the folder where the datasets
+#' @param download_folder A string containing the path to the folder where the datasets
 #'   should be saved.
 #' @param timeout_length The number of seconds to allow for the download. Defaults
 #' to 6000 based on tests with the riverSR dataset, but can be adjusted as needed.
 #' @param force Logical. If FALSE (default), the function skips downloading files that
-#' already exist in `save_location`. If TRUE, existing files will be overwritten.
+#' already exist in `download_folder`. If TRUE, existing files will be overwritten.
 #'
 #' @importFrom cli cli_alert_info cli_alert_success cli_alert_warning cli_abort
 #' @return A character string containing the local file paths to the downloaded RiverSR datasets. Returned invisibly.
@@ -124,13 +124,13 @@ download_parameters <- function(parameters, version = "newest"){
 #'
 #' @examples
 #' \dontrun{
-#' download_riverSR(save_location = "~/Downloads/")
+#' download_riverSR(download_folder = "~/Downloads/")
 #' }
-download_riverSR <- function(save_location, timeout_length = 6000, force = FALSE) {
+download_riverSR <- function(download_folder, timeout_length = 6000, force = FALSE) {
 
   # Ensure destination directory exists before running file checks
-  if (!dir.exists(save_location)) {
-    dir.create(save_location, recursive = TRUE)
+  if (!dir.exists(download_folder)) {
+    dir.create(download_folder, recursive = TRUE)
   }
 
   # Warning to user
@@ -148,7 +148,7 @@ download_riverSR <- function(save_location, timeout_length = 6000, force = FALSE
   )
 
   # Define named file paths upfront so returns are consistent
-  out_files <- file.path(save_location, target_files)
+  out_files <- file.path(download_folder, target_files)
   names(out_files) <- target_files
 
   # If force == TRUE, ignore whether there are any existing files of the same name
@@ -181,7 +181,7 @@ download_riverSR <- function(save_location, timeout_length = 6000, force = FALSE
   # Attempt download, watching for indications of a timeout issue
   tryCatch({
     zen4R::download_zenodo(
-      path = save_location,
+      path = download_folder,
       doi = "10.5281/zenodo.4304567",
       files = target_files,
       timeout = timeout_length
@@ -247,7 +247,7 @@ download_riverSR <- function(save_location, timeout_length = 6000, force = FALSE
 #' The downloaded datasets will be large (several GB in size in total), so users
 #' will need to make sure that they have appropriate available storage for the files.
 #'
-#' @param save_location A string containing the path to the folder where the dataset
+#' @param download_folder A string containing the path to the folder where the dataset
 #' should be saved.
 #' @param algal_mask Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
 #' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
@@ -267,10 +267,10 @@ download_riverSR <- function(save_location, timeout_length = 6000, force = FALSE
 #'
 #' @examples
 #' \dontrun{
-#' download_siteSR(save_location = "~/Downloads/", algal_mask = FALSE)
+#' download_siteSR(download_folder = "~/Downloads/", algal_mask = FALSE)
 #' }
 
-download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest",
+download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newest",
                             ask = TRUE){
 
   # siteSR EDI ID
@@ -299,7 +299,7 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
     if(ask == TRUE){
       # Check if any files with the standard names are already present in the save
       # location:
-      if(any(file.exists(file.path(save_location, dswe1_names)))) {
+      if(any(file.exists(file.path(download_folder, dswe1_names)))) {
         user_decision <- ask_user(algal_mask = FALSE, which_sr = "siteSR")
 
         # Act on input
@@ -320,7 +320,7 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
     if(ask == TRUE){
       # Check if any files with the standard names are already present in the save
       # location:
-      if(any(file.exists(file.path(save_location, dswe1a_names)))) {
+      if(any(file.exists(file.path(download_folder, dswe1a_names)))) {
         user_decision <- ask_user(algal_mask = TRUE, which_sr = "siteSR")
 
         # Act on input
@@ -364,13 +364,13 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
 
                      arrow::write_feather(
                        x = temp_file,
-                       sink = file.path(save_location, out_name)
+                       sink = file.path(download_folder, out_name)
                      )
 
                      cli::cli_alert_success("Downloaded {.val {(.x$entityName)}} as {.file {out_name}}.")
 
                      # Return the path to the loop
-                     return(file.path(save_location, out_name))
+                     return(file.path(download_folder, out_name))
                    })
 
   # Clean and store filenames
@@ -380,7 +380,7 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
   # Check if a site info file with the standard name is already present in the save
   # location:
   sites_filename <- "siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
-  sites_out_name <- file.path(save_location, sites_filename)
+  sites_out_name <- file.path(download_folder, sites_filename)
 
   if(ask == TRUE){
     if(any(file.exists(sites_out_name))) {
@@ -416,7 +416,7 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
 
   # Download handoffs
   handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
-  handoff_out_name <- file.path(save_location, handoff_filename)
+  handoff_out_name <- file.path(download_folder, handoff_filename)
 
   if(ask == TRUE){
     # Check if a handoff coefficient file with the standard name is already present
@@ -493,7 +493,7 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
 #' The downloaded datasets will be large (several GB in size in total), so users
 #' will need to make sure that they have appropriate available storage for the files.
 #'
-#' @param save_location A string containing the path to the folder where the dataset
+#' @param download_folder A string containing the path to the folder where the dataset
 #' should be saved.
 #' @param algal_mask Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
 #' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
@@ -513,9 +513,9 @@ download_siteSR <- function(save_location, algal_mask = FALSE, version = "newest
 #'
 #' @examples
 #' \dontrun{
-#' download_lakeSR(save_location = "~/Downloads/", algal_mask = FALSE)
+#' download_lakeSR(download_folder = "~/Downloads/", algal_mask = FALSE)
 #' }
-download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest",
+download_lakeSR <- function(download_folder, algal_mask = FALSE, version = "newest",
                             ask = TRUE){
 
   # lakeSR EDI ID
@@ -544,7 +544,7 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
     if(ask == TRUE){
       # Check if any files with the standard names are already present in the save
       # location:
-      if(any(file.exists(file.path(save_location, dswe1_names)))) {
+      if(any(file.exists(file.path(download_folder, dswe1_names)))) {
         user_decision <- ask_user(algal_mask = FALSE, which_sr = "lakeSR")
 
         # Act on input
@@ -565,7 +565,7 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
     if(ask == TRUE){
       # Check if any files with the standard names are already present in the save
       # location:
-      if(any(file.exists(file.path(save_location, dswe1a_names)))) {
+      if(any(file.exists(file.path(download_folder, dswe1a_names)))) {
         user_decision <- ask_user(algal_mask = TRUE, which_sr = "lakeSR")
 
         # Act on input
@@ -608,13 +608,13 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
 
                      arrow::write_feather(
                        x = temp_file,
-                       sink = file.path(save_location, out_name)
+                       sink = file.path(download_folder, out_name)
                      )
 
                      cli::cli_alert_success("Downloaded {.val {(.x$entityName)}} as {.file {out_name}}.")
 
                      # Return the path to the loop
-                     return(file.path(save_location, out_name))
+                     return(file.path(download_folder, out_name))
                    })
 
   # Clean and store filenames
@@ -622,7 +622,7 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
 
   # Download poi list
   lakes_filename <- "lakeSR_poi_with_flags_2025-02-12.csv"
-  lakes_out_name <- file.path(save_location, lakes_filename)
+  lakes_out_name <- file.path(download_folder, lakes_filename)
 
   if(ask == TRUE){
     # Check if a lake info file with the standard name is already present in the
@@ -660,7 +660,7 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
 
   # Download handoffs
   handoff_filename <- "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
-  handoff_out_name <- file.path(save_location, handoff_filename)
+  handoff_out_name <- file.path(download_folder, handoff_filename)
 
   if(ask == TRUE){
     # Check if a handoff coefficient file with the standard name is already present
@@ -737,7 +737,7 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
 #' siteSR/lakeSR rows, which carry the same `sat_id`.
 #'
 #'
-#' @param save_location A string containing the path to the folder where the
+#' @param download_folder A string containing the path to the folder where the
 #' dataset should be saved.
 #' @param product Either "siteSR" or "lakeSR" - which EDI package to pull
 #' from. The scene-level metadata content is identical between the two, so
@@ -762,9 +762,9 @@ download_lakeSR <- function(save_location, algal_mask = FALSE, version = "newest
 #'
 #' @examples
 #' \dontrun{
-#' download_sceneMetadata(save_location = "~/Downloads/", product = "siteSR")
+#' download_sceneMetadata(download_folder = "~/Downloads/", product = "siteSR")
 #' }
-download_sceneMetadata <- function(save_location, product = c("siteSR", "lakeSR"),
+download_sceneMetadata <- function(download_folder, product = c("siteSR", "lakeSR"),
                                    version = "newest", ask = TRUE){
 
   # Resolve which EDI package to pull from
@@ -783,7 +783,7 @@ download_sceneMetadata <- function(save_location, product = c("siteSR", "lakeSR"
   if(ask == TRUE){
     # Check if any files with the standard names are already present in the save
     # location:
-    if(any(file.exists(file.path(save_location, scene_names)))) {
+    if(any(file.exists(file.path(download_folder, scene_names)))) {
       user_decision <- ask_user(algal_mask = FALSE,
                                 which_sr = "generic",
                                 file_message = "scene-level metadata")
@@ -823,13 +823,13 @@ download_sceneMetadata <- function(save_location, product = c("siteSR", "lakeSR"
 
                      readr::write_csv(
                        x = temp_file,
-                       file = file.path(save_location, out_name)
+                       file = file.path(download_folder, out_name)
                      )
 
                      cli::cli_alert_success("Downloaded {.val {(.x$entityName)}} as {.file {out_name}}.")
 
                      # Return the path to the loop
-                     return(file.path(save_location, out_name))
+                     return(file.path(download_folder, out_name))
                    })
 
   # Clean and store filenames

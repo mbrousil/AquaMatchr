@@ -5,7 +5,7 @@ test_that("build_sr fails on bad SR input", {
       which_sr = "pondSR",
       sr_location = tempdir(),
       algal_mask = FALSE,
-      save_location = tempfile(fileext = ".parquet")
+      output_file = tempfile(fileext = ".parquet")
     ),
     regexp = "Must be .*lakeSR.* or .*siteSR.*"
   )
@@ -18,7 +18,7 @@ test_that("build_sr fails on non-logical algal mask", {
       sr_location = tempdir(),
       # Not logical
       algal_mask = "False",
-      save_location = tempfile(fileext = ".parquet")
+      output_file = tempfile(fileext = ".parquet")
     ),
     regexp = "Must be .*TRUE.* or .*FALSE.*"
   )
@@ -31,13 +31,13 @@ test_that("build_sr fails on missing input files", {
       # Empty
       sr_location = tempdir(),
       algal_mask = FALSE,
-      save_location = tempfile(fileext = ".parquet")
+      output_file = tempfile(fileext = ".parquet")
     ),
     regexp = "SR files were not detected"
   )
 })
 
-test_that("build_sr writes stacked data to the provided save_location", {
+test_that("build_sr writes stacked data to the provided output_file", {
 
   # Temporary directories for inputs and outputs
   tmp_base <- tempfile()
@@ -66,7 +66,7 @@ test_that("build_sr writes stacked data to the provided save_location", {
       sr_location = input_dir,
       sr_files = dummy_feather,
       algal_mask = FALSE,
-      save_location = custom_out_file
+      output_file = custom_out_file
     ),
     regexp = "Successfully wrote"
   )
@@ -74,7 +74,7 @@ test_that("build_sr writes stacked data to the provided save_location", {
   # Assert the custom .parquet file was created exactly as named
   expect_true(file.exists(custom_out_file))
 
-  # Scenario B: A save_location that does not end in .parquet
+  # Scenario B: A output_file that does not end in .parquet
   bad_ext_file <- file.path(tmp_base, "wrong_extension.csv")
 
   expect_error(
@@ -83,19 +83,19 @@ test_that("build_sr writes stacked data to the provided save_location", {
       sr_location = input_dir,
       sr_files = dummy_feather,
       algal_mask = FALSE,
-      save_location = bad_ext_file
+      output_file = bad_ext_file
     ),
     regexp = "Please supply a .*\\.parquet.* name"
   )
 
-  # Scenario C: A save_location whose parent directory does not exist
+  # Scenario C: A output_file whose parent directory does not exist
   expect_error(
     build_sr(
       which_sr = "lakeSR",
       sr_location = input_dir,
       sr_files = dummy_feather,
       algal_mask = FALSE,
-      save_location = file.path(tmp_base, "nope", "out.parquet")
+      output_file = file.path(tmp_base, "nope", "out.parquet")
     ),
     regexp = "does not appear to exist"
   )
@@ -103,24 +103,24 @@ test_that("build_sr writes stacked data to the provided save_location", {
 
 test_that("build_sr() aborts on invalid save parameters", {
 
-  # save_location = NULL
+  # output_file = NULL
   expect_error(
     build_sr(
       which_sr = "siteSR",
       sr_location = "dummy_dir",
       algal_mask = FALSE,
-      save_location = NULL
+      output_file = NULL
     ),
     regexp = "Please provide a value for"
   )
 
-  # save_location parent directory does not exist
+  # output_file parent directory does not exist
   expect_error(
     build_sr(
       which_sr = "siteSR",
       sr_location = "dummy_dir",
       algal_mask = FALSE,
-      save_location = "this/fake/path/does/not/exist.parquet"
+      output_file = "this/fake/path/does/not/exist.parquet"
     ),
     regexp = "does not appear to exist"
   )
@@ -179,7 +179,7 @@ test_that("match_siteSR_to_WQP calculates offsets, filters correctly, and valida
           wqp_path = wqp_path,
           siteSR_path = siteSR_path,
           site_list_path = sitelist_path,
-          save_location = "bad_output_name.csv",
+          output_file = "bad_output_name.csv",
           time_window = "5 hours"
         ),
         regexp = "Please supply a .*\\.parquet.* name"
@@ -191,7 +191,7 @@ test_that("match_siteSR_to_WQP calculates offsets, filters correctly, and valida
           wqp_path = wqp_path,
           siteSR_path = siteSR_path,
           site_list_path = sitelist_path,
-          save_location = out_match,
+          output_file = out_match,
           time_window = "5 hours"
         ),
         regexp = "Successfully wrote 1 matchups"
@@ -203,7 +203,7 @@ test_that("match_siteSR_to_WQP calculates offsets, filters correctly, and valida
           wqp_path = wqp_path,
           siteSR_path = siteSR_path,
           site_list_path = sitelist_path,
-          save_location = out_nomatch,
+          output_file = out_nomatch,
           time_window = "2 hours"
         ),
         regexp = "Successfully wrote 0 matchups"
@@ -236,7 +236,7 @@ test_that("match_siteSR_to_WQP fails if input files do not exist", {
       wqp_path = "does_not_exist.feather",
       siteSR_path = valid_temp_feather,
       site_list_path = valid_temp_csv,
-      save_location = "out.parquet"
+      output_file = "out.parquet"
     ),
     regexp = "File not found at .*wqp_path.*"
   )
@@ -247,7 +247,7 @@ test_that("match_siteSR_to_WQP fails if input files do not exist", {
       wqp_path = valid_temp_csv,
       siteSR_path = "does_not_exist.feather",
       site_list_path = valid_temp_csv,
-      save_location = "out.parquet"
+      output_file = "out.parquet"
     ),
     regexp = "File not found at .*siteSR_path.*"
   )
@@ -258,7 +258,7 @@ test_that("match_siteSR_to_WQP fails if input files do not exist", {
       wqp_path = valid_temp_csv,
       siteSR_path = valid_temp_feather,
       site_list_path = "does_not_exist.csv",
-      save_location = "out.parquet"
+      output_file = "out.parquet"
     ),
     regexp = "File not found at .*site_list_path.*"
   )
@@ -290,7 +290,7 @@ test_that("match_siteSR_to_WQP() processes CSV WQP data correctly", {
       wqp_path       = wqp_csv_path,
       siteSR_path    = sitesr_feather_path,
       site_list_path = sitelist_path,
-      save_location  = out_parquet_path,
+      output_file  = out_parquet_path,
       time_window    = "5 days"
     ),
     regexp = "Successfully wrote"
@@ -302,7 +302,7 @@ test_that("match_siteSR_to_WQP() processes CSV WQP data correctly", {
 })
 
 
-test_that("match_siteSR_to_WQP() aborts if save_location is not .parquet", {
+test_that("match_siteSR_to_WQP() aborts if output_file is not .parquet", {
 
   # Dummy paths for the initial existence checks to pass
   dummy_file <- tempfile()
@@ -315,7 +315,7 @@ test_that("match_siteSR_to_WQP() aborts if save_location is not .parquet", {
       wqp_path       = dummy_file,
       siteSR_path    = dummy_file,
       site_list_path = dummy_file,
-      save_location  = "bad_output_name.csv",
+      output_file  = "bad_output_name.csv",
       time_window    = "5 days"
     ),
     regexp = "non-parquet file"
@@ -332,7 +332,7 @@ test_that("apply_handoffs enforces argument validation", {
       correction_method = "Roy_magic",
       sat_target = "LS7",
       algal_mask = FALSE,
-      save_location = "out.parquet"
+      output_file = "out.parquet"
     ),
     regexp = "Must be .*Roy_deming.*, .*Roy_lm.*, or .*Gardner_poly.*"
   )
@@ -345,7 +345,7 @@ test_that("apply_handoffs enforces argument validation", {
       # Invalid
       sat_target = "LS6",
       algal_mask = FALSE,
-      save_location = "out.parquet"
+      output_file = "out.parquet"
     ),
     regexp = "Must be .*LS7.* or .*LS8.*"
   )
@@ -357,7 +357,7 @@ test_that("apply_handoffs enforces argument validation", {
       correction_method = "Roy_deming",
       sat_target = "LS7",
       algal_mask = FALSE,
-      save_location = "out.csv"
+      output_file = "out.csv"
     ),
     regexp = "Please supply a .*\\.parquet.* name"
   )
@@ -409,7 +409,7 @@ test_that("apply_handoffs computes Roy linear math and flags extreme values", {
       correction_method = "Roy_deming",
       sat_target = "LS7",
       algal_mask = FALSE,
-      save_location = out_path
+      output_file = out_path
     ),
     regexp = "Successfully wrote SR file"
   )
@@ -471,7 +471,7 @@ test_that("apply_handoffs computes Gardner polynomial math and handles missing b
       correction_method = "Gardner_poly",
       sat_target = "LS7",
       algal_mask = FALSE,
-      save_location = out_path
+      output_file = out_path
     ),
     regexp = "Expected column .*med_Blue.* is missing"
   )
@@ -500,7 +500,7 @@ test_that("apply_handoffs() warns users when sat_target is LS8", {
       correction_method = "Gardner_poly",
       sat_target = "LS8",
       algal_mask = FALSE,
-      save_location = temp_out
+      output_file = temp_out
     ),
     # Partial string match
     regexp = "Any data that is not from Landsat 7 will be returned as"
