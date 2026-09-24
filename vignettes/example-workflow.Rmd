@@ -73,7 +73,7 @@ Next we download the siteSR data from EDI using `download_siteSR()`.
 # Naming this _paths because the function returns a vector of filepaths after it
 # completes
 siteSR_paths <- download_siteSR(
-  save_location = temp_dir,
+  download_folder = temp_dir,
   # DSWE1
   algal_mask = FALSE,
   # Don't ask about overwriting existing files
@@ -83,20 +83,17 @@ siteSR_paths <- download_siteSR(
 
 ## 3. Stack the siteSR dataset
 
-The siteSR dataset is downloaded as a separate file for each of the Landsat missions it contains. Here we stack them into a single Arrow Table and save it locally.
+The siteSR dataset is downloaded as a separate file for each of the Landsat missions it contains. Here we stack them into a single .parquet file locally. This all takes place outside of R's memory, in order to reduce the amount of computer resources needed for the task. Note that if you want to examine the output of `full_sr`, you'll need to use `arrow::open_dataset()`. For more on working with Arrow Datasets, you may want to read the [Apache Arrow documentation on datasets](https://arrow.apache.org/docs/r/articles/dataset.html) or the [R for Data Science chapter on Arrow](https://r4ds.hadley.nz/arrow.html#using-dplyr-with-arrow) if these data structures are new to you.
 
 ```{r build-siteSR}
+# After running, the contents of full_sr here will be a string containing the
+# path to the output file
 full_sr <- build_sr(
   which_sr = "siteSR",
   sr_location = temp_dir,
   algal_mask = FALSE,
-  save = TRUE, 
-  save_location = temp_dir
+  output_file = file.path(temp_dir, "siteSR_DSWE1_stacked.parquet")
 )
-
-# Don't need the object loaded for this example
-rm(full_sr)
-gc()
 ```
 
 ## 4. QA and filter the siteSR dataset
@@ -107,8 +104,9 @@ Note that we use `open_dataset()` in this step to save memory. This specific exa
 
 ```{r qa-filter-pixels-clouds}
 qa_siteSR <- open_dataset(
-  file.path(temp_dir, "siteSR_DSWE1_full_concatenation.feather"),
-  format = "feather"
+  # Path to file
+  sources = full_sr,
+  format = "parquet"
 ) %>%
   filter(
     pCount_dswe1 >= 8,
@@ -120,7 +118,7 @@ We can also QA using scene-level metadata that isn't carried through into siteSR
 
 ```{r download-scene-metadata}
 sceneMetadata_paths <- download_sceneMetadata(
-  save_location = temp_dir,
+  download_folder = temp_dir,
   product = "siteSR",
   ask = FALSE
 )
@@ -138,9 +136,11 @@ good_scenes <- bind_rows(
 # filtered stacked file for downstream steps
 qa_siteSR %>%
   filter(sat_id %in% good_scenes$sat_id) %>%
-  # Write the file output to feather using write_ipc_file() because the data
-  # are not an in-memory R data frame
-  write_ipc_file(sink = file.path(temp_dir, "siteSR_DSWE1_full_concatenation_filtered.feather"))
+  # Write the file output to parquet. The next step, match_siteSR_to_WQP(), 
+  # accepts either feather or parquet but we use parquet for consistency here.
+  write_parquet(
+    sink = file.path(temp_dir, "siteSR_DSWE1_stacked_filtered.parquet")
+  )
 ```
 
 ## 5. Perform WQP-siteSR matchups
@@ -150,10 +150,10 @@ We'll now match our downloaded chlorophyll *a* *in-situ* data to the stacked sit
 ```{r join-wqp-sr}
 matchup_path <- match_siteSR_to_WQP(
   wqp_path = file.path(temp_dir, "chla_harmonized.feather"),
-  siteSR_path = file.path(temp_dir, "siteSR_DSWE1_full_concatenation_filtered.feather"),
+  siteSR_path = file.path(temp_dir, "siteSR_DSWE1_stacked_filtered.parquet"),
   # Grab path from existing object
   site_list_path = siteSR_paths["siteSR_site_list"],
-  save_location = file.path(temp_dir, "chla_siteSR_DSWE1_matchups.parquet"),
+  output_file = file.path(temp_dir, "chla_siteSR_DSWE1_matchups.parquet"),
   # This is also the default time_window
   time_window = "5 days"
 )
@@ -171,7 +171,7 @@ handoff_path <- apply_handoffs(
   correction_method = "Gardner_poly",
   sat_target = "LS7",
   algal_mask = FALSE,
-  save_location = file.path(temp_dir, "chla_siteSR_DSWE1_matchups_corrected.parquet")
+  output_file = file.path(temp_dir, "chla_siteSR_DSWE1_matchups_corrected.parquet")
 )
 ```
 
