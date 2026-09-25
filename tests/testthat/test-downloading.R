@@ -100,7 +100,7 @@ test_that("download_siteSR aborts when user declines to overwrite files", {
   testthat::with_mocked_bindings(
     {
       expect_error(
-        download_siteSR(save_location = tmp_dir, algal_mask = FALSE, ask = TRUE),
+        download_siteSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
         regexp = "Cancelled by user."
       )
     },
@@ -162,7 +162,7 @@ test_that("download_siteSR proceeds when user agrees to overwrite files", {
 
   # Expect the informational message confirming the download is proceeding
   expect_message(
-    result <- download_siteSR(save_location = tmp_dir, algal_mask = FALSE, ask = TRUE),
+    result <- download_siteSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
     regexp = "Proceeding with download."
   )
 
@@ -187,7 +187,7 @@ test_that("download_lakeSR aborts when user declines to overwrite files", {
   testthat::with_mocked_bindings(
     {
       expect_error(
-        download_lakeSR(save_location = tmp_dir, algal_mask = FALSE, ask = TRUE),
+        download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
         regexp = "Cancelled by user."
       )
     },
@@ -247,7 +247,7 @@ test_that("download_lakeSR proceeds when user agrees to overwrite files", {
 
   # Expect the informational message confirming the download is proceeding
   expect_message(
-    result <- download_lakeSR(save_location = tmp_dir, algal_mask = FALSE, ask = TRUE),
+    result <- download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
     regexp = "Proceeding with download."
   )
 
@@ -257,7 +257,7 @@ test_that("download_lakeSR proceeds when user agrees to overwrite files", {
 
 test_that("download_sceneMetadata rejects an invalid product", {
   expect_error(
-    download_sceneMetadata(save_location = tempdir(), product = "riverSR")
+    download_sceneMetadata(download_folder = tempdir(), product = "riverSR")
   )
 })
 
@@ -276,7 +276,7 @@ test_that("download_sceneMetadata aborts when user declines to overwrite files",
   )
 
   expect_error(
-    download_sceneMetadata(save_location = tmp, product = "siteSR", ask = TRUE),
+    download_sceneMetadata(download_folder = tmp, product = "siteSR", ask = TRUE),
     regexp = "Cancelled by user."
   )
 })
@@ -316,7 +316,7 @@ test_that("download_sceneMetadata downloads and writes both scene metadata files
   )
 
   # Run the function
-  result <- download_sceneMetadata(save_location = tmp, product = "siteSR", ask = FALSE)
+  result <- download_sceneMetadata(download_folder = tmp, product = "siteSR", ask = FALSE)
 
   # Verify both files were written with the expected names and content
   expect_type(result, "character")

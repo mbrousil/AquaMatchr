@@ -1,23 +1,20 @@
 #' Build and save siteSR or lakeSR products from downloaded files
 #'
 #' @details
-#' Reads and stacks siteSR or lakeSR files into a single object (an Arrow Table),
-#' then optionally exports them to a single local file. The user can provide a
-#' vector of filenames to the `sr_files` argument, which will then be used as
-#' the input files. If this argument is not used, then the value of `which_sr`
-#' will be used to infer the filenames based on the default outputs of
-#' `download_siteSR()` or `download_lakeSR()`.
+#' Reads and stacks siteSR or lakeSR files into a single .parquet file on disk.
+#' The user can provide a vector of filenames to the `sr_files` argument, which
+#' will then be used as the input files. If this argument is not used, then the
+#' value of `which_sr` will be used to infer the filenames based on the default
+#' outputs of `download_siteSR()` or `download_lakeSR()`.
 #'
-#' It is often possible to use Arrow Tables with `dplyr` syntax, but users may want
-#' to read the [Apache Arrow documentation on Tables](https://arrow.apache.org/docs/r/articles/data_objects.html#tables)
+#' The stacking and writing steps are performed out of memory using the
+#' \pkg{arrow} and \pkg{duckdb} packages, so the full stacked dataset is never
+#' loaded into R's
+#' memory. The output .parquet file can be read "lazily" using
+#' `arrow::open_dataset()`. For more on working with Arrow Datasets, users may
+#' want to read the [Apache Arrow documentation on datasets](https://arrow.apache.org/docs/r/articles/dataset.html)
 #' or the *R for Data Science* [chapter on Arrow](https://r4ds.hadley.nz/arrow.html#using-dplyr-with-arrow)
-#' if these data structures are new to them. We use Arrow Tables because of their
-#' efficiency and convenience when working with large datasets.
-#'
-#' If a file export is requested (i.e., `save` is TRUE), then the file is exported
-#' to a user-specified location. If the user provides a path to a .feather file
-#' in `save_location` then that will be used, otherwise a standardized filename
-#' will be used and saved to the directory in `save_location`.
+#' if these data structures are new to them.
 #'
 #' @param which_sr String. Options are "siteSR" or "lakeSR", indicating which of
 #' the two SR products should be built.
@@ -27,32 +24,30 @@
 #' @param sr_files Optional. A vector of filenames (five at most) with siteSR or
 #' lakeSR files, like would be saved when running `download_lakeSR()` or `download_siteSR()`.
 #' Should *not* include the directory provided in `sr_location`.
-#' @param save Logical. Should the built SR dataset be saved locally? Defaults to FALSE.
-#' @param save_location String. If save == TRUE, the path to the folder where the
-#' output file should be saved. If a name ending in ".feather" is provided as part
-#' of the path then this is the name that the file will be saved with. Otherwise,
-#' a default name will be used by the function. It will always be a .feather file.
-#' If a non-feather file is provided, the function will save the file to the directory
-#' indicated by save_location, but under a different, standardized filename.
+#' @param output_file String. The path to the .parquet file that the stacked SR
+#' dataset should be written to. Must end in ".parquet" or an error will occur.
+#' The parent directory of the file must already exist.
 #'
-#' @return An [Arrow Table](https://arrow.apache.org/docs/r/articles/data_objects.html#tables)
-#' representing the SR dataset.
+#' @return The path to the stacked SR dataset, as a .parquet file. (Invisible)
 #'
 #' @export
 #'
 #' @importFrom cli cli_abort cli_alert_info cli_alert_success
+#' @importFrom arrow open_dataset to_duckdb
+#' @importFrom DBI dbConnect dbDisconnect dbExecute
+#' @importFrom duckdb duckdb
+#'
 #' @examples
 #' \dontrun{
 #' stacked_siteSR <- build_sr(
 #'   which_sr = "siteSR",
 #'   sr_location = "data/siteSR_raw",
 #'   algal_mask = FALSE,
-#'   save = TRUE,
-#'   save_location = "data/siteSR_DSWE1_stacked.feather"
+#'   output_file = "data/siteSR_DSWE1_stacked.parquet"
 #' )
 #' }
-build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
-                     save = FALSE, save_location = NULL){
+build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
+                     output_file){
   # Confirm correct use of SR tag
   if(!(which_sr == "lakeSR" | which_sr == "siteSR")){
     cli::cli_abort("Input for {.arg which_sr} argument is not valid. Must be {.val lakeSR} or {.val siteSR}.", call = NULL)
@@ -63,20 +58,20 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
     cli::cli_abort("Input for {.arg algal_mask} argument is not a logical value. Must be {.val TRUE} or {.val FALSE}.", call = NULL)
   }
 
-  # Make sure the (optional) save_location exists upfront if it's expected
-  if(save){
-    # No info provided = error
-    if(is.null(save_location)){
-      cli::cli_abort("Please provide a value for {.arg save_location}.", call = NULL)
-    } else {
-      # If the provided path isn't an existing directory, check if its parent directory exists
-      if(!dir.exists(save_location)){
-        parent_dir <- dirname(save_location)
-        if(!dir.exists(parent_dir)){
-          cli::cli_abort("The target directory {.file {parent_dir}} does not appear to exist. Cannot save to {.arg save_location}.", call = NULL)
-        }
-      }
-    }
+  # Confirm output_file was provided as a single string
+  if(is.null(output_file) || !is.character(output_file) || length(output_file) != 1){
+    cli::cli_abort("Please provide a value for {.arg output_file} as a single character string ending in {.val .parquet}.", call = NULL)
+  }
+
+  # Confirm .parquet output
+  if(!grepl(pattern = "\\.parquet$", x = output_file)){
+    cli::cli_abort("A non-parquet file was indicated by {.arg output_file}. Please supply a {.val .parquet} name.", call = NULL)
+  }
+
+  # If the output file's parent directory doesn't exist, we can't write there
+  parent_dir <- dirname(output_file)
+  if(!dir.exists(parent_dir)){
+    cli::cli_abort("The target directory {.file {parent_dir}} does not appear to exist. Cannot save to {.arg output_file}.", call = NULL)
   }
 
   # Potential default SR path names
@@ -134,10 +129,8 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
     }
   }
 
-  # Read files and stack
-  # We use the {arrow} package to concatenate the datasets into a single table
-  # instead of something like rbind(), which likely will use more memory than is
-  # available to the user.
+  # Read files and stack lazily. {arrow} scans the .feather files in chunks,
+  # so the combined dataset is never fully materialized in R's memory.
   unified_sr_dataset <- arrow::open_dataset(
     # All files indicated to contain SR data
     sources = file_list,
@@ -148,51 +141,34 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
     # Don't assume all files in the file_list have the same scheme. For
     # example, Aerosols cols may not be present in all
     unify_schemas = TRUE
-  ) %>%
-    # Convert to Arrow Table
-    arrow::as_arrow_table()
+  )
 
-  # Now export if requested by user
-  if(save){
-    # Standard name, in case filename not provided by user
-    std_out_name <- paste0(input_string, "_full_concatenation.feather")
+  # Work around a duckdb bug where it fails to create its temp directory
+  # because the parent "duckdb" folder under tempdir() doesn't exist yet
+  dir.create(file.path(tempdir(), "duckdb"), recursive = TRUE, showWarnings = FALSE)
 
-    # If the user passed an existing directory path
-    if(dir.exists(save_location)){
-      full_out_name <- file.path(save_location, std_out_name)
+  # Connect to DuckDB. The connection is guaranteed to close on exit.
+  con <- DBI::dbConnect(duckdb::duckdb())
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
-      arrow::write_feather(
-        x = unified_sr_dataset,
-        sink = full_out_name
-      )
-      cli::cli_alert_success("Saving SR file as {.file {full_out_name}}")
+  # Register the lazy Arrow Dataset as a DuckDB virtual table
+  sr_tbl <- arrow::to_duckdb(unified_sr_dataset, con, "sr_tbl")
 
-    } else {
-      # The user passed a specific file path (since it's not a directory)
+  # Execute an out-of-memory write directly to Parquet via DuckDB. We bypass
+  # materialization in R entirely so the stacked dataset never hits RAM.
+  rows_affected <- DBI::dbExecute(
+    con,
+    sprintf(
+      "COPY (SELECT * FROM sr_tbl) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
+      output_file
+    )
+  )
 
-      # Check if it properly ends in .feather
-      if(grepl(pattern = "\\.feather$", x = save_location)){
+  cli::cli_alert_success(
+    "Successfully wrote {format(rows_affected, big.mark = ',')} SR rows to {.file {output_file}}."
+  )
 
-        arrow::write_feather(
-          x = unified_sr_dataset,
-          sink = save_location
-        )
-        cli::cli_alert_success("Saving SR file as {.file {save_location}}")
-
-      } else {
-        # A file path was provided, but it lacks the .feather extension
-        emergency_out_name <- file.path(dirname(save_location), std_out_name)
-
-        arrow::write_feather(
-          x = unified_sr_dataset,
-          sink = emergency_out_name
-        )
-        cli::cli_alert_info("A non-feather file was indicated by {.arg save_location}. Saving SR file as {.file {emergency_out_name}}")
-      }
-    }
-  }
-
-  return(unified_sr_dataset)
+  return(invisible(output_file))
 }
 
 
@@ -214,19 +190,19 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' is because all join computation takes place out of memory and therefore cannot
 #' be completed using other filetypes such as .csv or .feather.
 #'
-#' @param wqp_path Path to the file (.csv or .feather) storing the AquaMatch
-#' parameter data to be joined. Should be data from a single parameter (e.g.,
-#' chlorophyll *a*), as would be saved after using the `download_parameters()`
-#' function.
-#' @param siteSR_path Path to the file (.feather) storing the stacked version of
-#' the siteSR dataset (either DSWE1 or DSWE1a). This is the equivalent of the
-#' direct output of the `build_sr()` function when run with siteSR data.
+#' @param wqp_path Path to the file (.csv, .feather, or .parquet) storing the
+#' AquaMatch parameter data to be joined. Should be data from a single parameter
+#' (e.g., chlorophyll *a*), as would be saved after using the
+#' `download_parameters()` function.
+#' @param siteSR_path Path to the file (.feather or .parquet) storing the stacked
+#' version of the siteSR dataset (either DSWE1 or DSWE1a). This is the equivalent
+#' of the direct output of the `build_sr()` function when run with siteSR data.
 #' @param site_list_path Path to the file (.csv) storing the site list for siteSR.
 #' This is included in downloads done using `download_siteSR()`.
 #' @param time_window A string indicating the amount of time on either side of the
 #' in-situ measurements that should be used to match to siteSR overpass times, for
 #' example: "2 days", "72 hours". Defaults to "5 days".
-#' @param save_location String. The path where a parquet file containing the output
+#' @param output_file String. The path where a parquet file containing the output
 #' should be saved. If the string does not end in ".parquet" then an error will occur.
 #' @return The path to the joined dataset. (Invisible)
 #' @export
@@ -238,12 +214,13 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #' @importFrom DBI dbConnect dbDisconnect dbExecute
 #' @importFrom duckdb duckdb
 #' @importFrom cli cli_abort cli_alert_success
+#' @importFrom rlang inject
 #'
 #' @examples
 #' \dontrun{
 #' # Define theoretical paths to downloaded and stacked data
 #' wqp_data <- "data/chla_harmonized.feather"
-#' sr_stacked <- "data/siteSR_DSWE1_full_concatenation.feather"
+#' sr_stacked <- "data/siteSR_DSWE1_full_concatenation.parquet"
 #' sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
 #' out_file <- "data/chla_siteSR_matchups.parquet"
 #'
@@ -252,17 +229,17 @@ build_sr <- function(which_sr, sr_location, algal_mask = NULL, sr_files = NULL,
 #'   wqp_path = wqp_data,
 #'   siteSR_path = sr_stacked,
 #'   site_list_path = sr_sites,
-#'   save_location = out_file,
+#'   output_file = out_file,
 #'   time_window = "5 days"
 #' )
 #' }
 match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
-                                save_location,
+                                output_file,
                                 time_window = "5 days"){
 
-  # Ensure save_location is the correct type
-  if(!grepl(pattern = "\\.parquet$", x = save_location)){
-    cli::cli_abort("A non-parquet file was indicated by {.arg save_location}. Please supply a {.val .parquet} name.", call = NULL)
+  # Ensure output_file is the correct type
+  if(!grepl(pattern = "\\.parquet$", x = output_file)){
+    cli::cli_abort("A non-parquet file was indicated by {.arg output_file}. Please supply a {.val .parquet} name.", call = NULL)
   }
 
   # Ensure files exist
@@ -270,12 +247,9 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   if (!file.exists(siteSR_path)) cli::cli_abort("File not found at {.arg siteSR_path} ({.file {siteSR_path}}).", call = NULL)
   if (!file.exists(site_list_path)) cli::cli_abort("File not found at {.arg site_list_path} ({.file {site_list_path}}).", call = NULL)
 
-  # Is WQP data csv or feather?
-  if (grepl("\\.csv$", wqp_path)) {
-    wqp_format <- "csv"
-  } else if (grepl("\\.feather$", wqp_path)) {
-    wqp_format <-  "feather"
-  }
+  # Detect input file formats from their extensions
+  wqp_format <- infer_arrow_format(wqp_path)
+  siteSR_format <- infer_arrow_format(siteSR_path, allowed = c("feather", "parquet"))
 
   # Check file cols to make sure things look right:
 
@@ -288,7 +262,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   check_cols(dataset = raw_wqp, target_schema = wqp_schema, file_label = "WQP file")
 
   # siteSR
-  raw_siteSR <- arrow::open_dataset(siteSR_path, format = "feather")
+  raw_siteSR <- arrow::open_dataset(siteSR_path, format = siteSR_format)
   siteSR_schema <- get_arrow_schema(dataset = "siteSR")
   check_cols(dataset = raw_siteSR, target_schema = siteSR_schema, file_label = "siteSR file")
 
@@ -306,14 +280,16 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   con <- DBI::dbConnect(duckdb::duckdb())
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
-  # Read datasets lazily via Arrow, injecting the correct schemas
-  wqp_ds <- arrow::open_dataset(
-    sources = wqp_path,
-    format = wqp_format,
-    col_types = get_arrow_schema("wqp")
-  ) %>%
+  # Read datasets lazily via Arrow. col_types is only valid for CSV inputs;
+  # parquet and feather carry their own schema.
+  wqp_args <- list(sources = wqp_path, format = wqp_format)
+  if (wqp_format == "csv") {
+    wqp_args$col_types <- get_arrow_schema("wqp")
+  }
+
+  wqp_ds <- rlang::inject(arrow::open_dataset(!!!wqp_args)) %>%
     # Check for NAs and correct (issue if csv is used, but won't accept null_values
-    # if format is feather)
+    # if format is feather or parquet)
     dplyr::mutate(
       dplyr::across(
         .cols = dplyr::where(is.character),
@@ -323,8 +299,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 
   siteSR_ds <- arrow::open_dataset(
     sources = siteSR_path,
-    format = "feather",
-    col_types = get_arrow_schema("siteSR")
+    format = siteSR_format
   )
 
   site_list_ds <- arrow::open_dataset(
@@ -391,7 +366,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
   copy_query <- sprintf(
     "COPY (%s) TO '%s' (FORMAT PARQUET, CODEC 'ZSTD');",
     sql_query,
-    save_location
+    output_file
   )
 
   # Execute query and catch number of rows affected by it
@@ -399,11 +374,11 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 
   # Alert success to user
   cli::cli_alert_success(
-    "Successfully wrote {format(rows_affected, big.mark = ',')} matchups to {.file {save_location}}."
+    "Successfully wrote {format(rows_affected, big.mark = ',')} matchups to {.file {output_file}}."
   )
 
   # Return path to file, quietly
-  return(invisible(save_location))
+  return(invisible(output_file))
 }
 
 
@@ -426,7 +401,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' if the original median value (e.g., `med_Blue`) fell outside of the min/max
 #' range used in calculating the handoff coefficient for the selected method.
 #'
-#' @param input_path Character. Path to the input .parquet dataset containing surface reflectance data.
+#' @param input_path Character. Path to the input .feather or .parquet dataset containing surface reflectance data.
 #' @param handoff_path Character. Path to the .csv file containing the handoff coefficients.
 #' @param correction_method Character. The mathematical correction method to apply.
 #' Valid options are `"Roy_deming"`, `"Roy_lm"`, or `"Gardner_poly"`. These correspond
@@ -436,10 +411,10 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' Valid options are `"LS7"` or `"LS8"`.
 #' @param algal_mask Logical. If TRUE, the algal mask version of the handoff (DSWE1a)
 #' will used. Otherwise DSWE1 (i.e., FALSE).
-#' @param save_location Character. The destination file path for the corrected .parquet file.
+#' @param output_file Character. The destination file path for the corrected .parquet file.
 #' Must end in `".parquet"`.
 #'
-#' @return Invisibly returns the `save_location` character string.
+#' @return Invisibly returns the `output_file` character string.
 #'
 #' @importFrom readr read_csv
 #' @importFrom dplyr case_when mutate filter select left_join if_else any_of
@@ -463,11 +438,11 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #'   correction_method = "Gardner_poly",
 #'   sat_target = "LS7",
 #'   algal_mask = FALSE,
-#'   save_location = out_file_path)
+#'   output_file = out_file_path
 #' )
 #' }
 apply_handoffs <- function(input_path, handoff_path, correction_method,
-                           sat_target, algal_mask, save_location){
+                           sat_target, algal_mask, output_file){
   # Confirm use of correction_method
   if(!correction_method %in% c("Roy_deming", "Roy_lm", "Gardner_poly")){
     cli::cli_abort(
@@ -489,13 +464,16 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
   }
 
   # Confirm .parquet output
-  if(!grepl(pattern = "\\.parquet$", x = save_location)){
+  if(!grepl(pattern = "\\.parquet$", x = output_file)){
     cli::cli_abort(
       paste0(
-        "A non-parquet file was indicated by {.arg save_location}. Please supply a ",
+        "A non-parquet file was indicated by {.arg output_file}. Please supply a ",
         "{.val .parquet} name."
       ), call = NULL)
   }
+
+  # Confirm the input file type up front (.feather or .parquet only)
+  input_format <- infer_arrow_format(input_path, allowed = c("feather", "parquet"))
 
   handoffs <- readr::read_csv(handoff_path, show_col_types = FALSE)
 
@@ -545,7 +523,8 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
 
   # SR dataset
   input_data <- arrow::open_dataset(
-    sources = input_path
+    sources = input_path,
+    format = input_format
   ) %>%
     dplyr::mutate(
       # Standardize sat mission naming for upcoming join
@@ -692,14 +671,14 @@ apply_handoffs <- function(input_path, handoff_path, correction_method,
     }
   }
   # Execute query and write to disk
-  arrow::write_parquet(input_w_handoffs, sink = save_location)
+  arrow::write_parquet(input_w_handoffs, sink = output_file)
 
   # Alert success to user
   cli::cli_alert_success(
-    "Successfully wrote SR file with handoffs to {.file {save_location}}."
+    "Successfully wrote SR file with handoffs to {.file {output_file}}."
   )
 
   # Return path to file, quietly
-  return(invisible(save_location))
+  return(invisible(output_file))
 
 }

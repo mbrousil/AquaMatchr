@@ -5,14 +5,14 @@
 \title{Download Landsat scene-level metadata from EDI}
 \usage{
 download_sceneMetadata(
-  save_location,
+  download_folder,
   product = c("siteSR", "lakeSR"),
   version = "newest",
   ask = TRUE
 )
 }
 \arguments{
-\item{save_location}{A string containing the path to the folder where the
+\item{download_folder}{A string containing the path to the folder where the
 dataset should be saved.}
 
 \item{product}{Either "siteSR" or "lakeSR" - which EDI package to pull
@@ -61,6 +61,6 @@ appropriate available storage.
 }
 \examples{
 \dontrun{
-download_sceneMetadata(save_location = "~/Downloads/", product = "siteSR")
+download_sceneMetadata(download_folder = "~/Downloads/", product = "siteSR")
 }
 }

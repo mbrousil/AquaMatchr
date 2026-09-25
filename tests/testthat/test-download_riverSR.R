@@ -23,7 +23,7 @@ test_that("download_riverSR creates directories and returns correct paths on fre
 
   testthat::with_mocked_bindings(
     {
-      out <- download_riverSR(save_location = tmp_dir)
+      out <- download_riverSR(download_folder = tmp_dir)
 
       # Assert directory was created
       expect_true(dir.exists(tmp_dir))
@@ -48,7 +48,7 @@ test_that("download_riverSR skips download when all files already exist (force =
 
   # Verify early return message
   expect_message(
-    out <- download_riverSR(save_location = tmp_dir, force = FALSE),
+    out <- download_riverSR(download_folder = tmp_dir, force = FALSE),
     regexp = "All files already exist"
   )
 
@@ -74,7 +74,7 @@ test_that("download_riverSR bypasses existing files when force = TRUE", {
   testthat::with_mocked_bindings(
     {
       expect_message(
-        download_riverSR(save_location = tmp_dir, force = TRUE),
+        download_riverSR(download_folder = tmp_dir, force = TRUE),
         regexp = "Force override enabled"
       )
       # Assert that zen4R was actually called
@@ -103,7 +103,7 @@ test_that("download_riverSR cleans up partial files on timeout without deleting 
   testthat::with_mocked_bindings(
     {
       expect_error(
-        download_riverSR(save_location = tmp_dir),
+        download_riverSR(download_folder = tmp_dir),
         regexp = "download failed, timed out, or resulted in corrupted files"
       )
     },
@@ -132,7 +132,7 @@ test_that("download_riverSR handles hard errors and cleans up partial files", {
   testthat::with_mocked_bindings(
     {
       expect_error(
-        download_riverSR(save_location = tmp_dir),
+        download_riverSR(download_folder = tmp_dir),
         regexp = "fatal error occurred during the download"
       )
     },

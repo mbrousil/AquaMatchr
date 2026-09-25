@@ -4,17 +4,17 @@
 \alias{download_riverSR}
 \title{Download riverSR dataset from Zenodo}
 \usage{
-download_riverSR(save_location, timeout_length = 6000, force = FALSE)
+download_riverSR(download_folder, timeout_length = 6000, force = FALSE)
 }
 \arguments{
-\item{save_location}{A string containing the path to the folder where the datasets
+\item{download_folder}{A string containing the path to the folder where the datasets
 should be saved.}
 
 \item{timeout_length}{The number of seconds to allow for the download. Defaults
 to 6000 based on tests with the riverSR dataset, but can be adjusted as needed.}
 
 \item{force}{Logical. If FALSE (default), the function skips downloading files that
-already exist in \code{save_location}. If TRUE, existing files will be overwritten.}
+already exist in \code{download_folder}. If TRUE, existing files will be overwritten.}
 }
 \value{
 A character string containing the local file paths to the downloaded RiverSR datasets. Returned invisibly.
@@ -31,6 +31,6 @@ downloads took nearly 90 minutes.
 }
 \examples{
 \dontrun{
-download_riverSR(save_location = "~/Downloads/")
+download_riverSR(download_folder = "~/Downloads/")
 }
 }

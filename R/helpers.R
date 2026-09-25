@@ -144,7 +144,8 @@ construct_id <- function(identifier, version){
 #' Get Arrow schemas for datasets that will be joined
 #'
 #' @description A helper function that generates `arrow::schema()` objects to
-#' prevent errors when joining datasets using {arrow} and {duckdb} tools.
+#' prevent errors when joining datasets using \pkg{arrow} and \pkg{duckdb}
+#' tools.
 #'
 #' @param dataset A character string indicating which schema to return. Options
 #' are "wqp", "siteSR", or "sitelist".
@@ -399,4 +400,45 @@ check_edi_auth <- function() {
   }
 
   return(invisible(TRUE))
+}
+
+#' Infer Arrow file format from a file path's extension
+#'
+#' @param path A character string containing a file path.
+#' @param allowed Optional character vector of allowed formats. Options are
+#'   "csv", "feather", and "parquet". Defaults to all three.
+#'
+#' @return A length-one character string: "csv", "feather", or "parquet".
+#' @keywords internal
+#' @importFrom cli cli_abort
+infer_arrow_format <- function(path, allowed = c("csv", "feather", "parquet")) {
+  ext <- sub("^.*\\.", "", tolower(basename(path)))
+
+  format <- switch(
+    ext,
+    "csv" = "csv",
+    "feather" = "feather",
+    "parquet" = "parquet",
+    NA_character_
+  )
+
+  # Unrecognized/missing extension
+  if (is.na(format)) {
+    cli::cli_abort(
+      c("The file {.file {path}} does not have a supported extension.",
+        "i" = "Please use a {.val .csv}, {.val .feather}, or {.val .parquet} file."),
+      call = NULL
+    )
+  }
+
+  # Recognized extension, but not one this argument accepts
+  if (!format %in% allowed) {
+    cli::cli_abort(
+      c("The file {.file {path}} has an unsupported format for this argument.",
+        "i" = "Please provide one of: {.val {allowed}}."),
+      call = NULL
+    )
+  }
+
+  format
 }

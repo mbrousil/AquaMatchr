@@ -129,3 +129,56 @@ test_that("check_cols() identifies exact missing columns dynamically with real s
   )
 
 })
+
+test_that("infer_arrow_format() returns the format for supported extensions", {
+  expect_equal(infer_arrow_format("data.csv"), "csv")
+  expect_equal(infer_arrow_format("data.feather"), "feather")
+  expect_equal(infer_arrow_format("data.parquet"), "parquet")
+})
+
+test_that("infer_arrow_format() is case-insensitive", {
+  expect_equal(infer_arrow_format("DATA.PARQUET"), "parquet")
+  expect_equal(infer_arrow_format("x.Feather"), "feather")
+  expect_equal(infer_arrow_format("x.CSV"), "csv")
+})
+
+test_that("infer_arrow_format() ignores dots in directory names", {
+  expect_equal(infer_arrow_format("some.dir/file.parquet"), "parquet")
+  expect_equal(infer_arrow_format("data.v2/sub.dir/file.feather"), "feather")
+})
+
+test_that("infer_arrow_format() aborts on unsupported extensions", {
+  expect_error(
+    infer_arrow_format("x.txt"),
+    regexp = "does not have a supported extension"
+  )
+  expect_error(
+    infer_arrow_format("x.rds"),
+    regexp = "does not have a supported extension"
+  )
+})
+
+test_that("infer_arrow_format() aborts when the path has no extension", {
+  expect_error(
+    infer_arrow_format("data"),
+    regexp = "does not have a supported extension"
+  )
+})
+
+test_that("infer_arrow_format() respects the `allowed` argument", {
+  # Recognized extension, but not allowed for this argument
+  expect_error(
+    infer_arrow_format("x.csv", allowed = c("feather", "parquet")),
+    regexp = "unsupported format for this argument"
+  )
+
+  # Allowed formats still pass under the same restriction
+  expect_equal(
+    infer_arrow_format("x.parquet", allowed = c("feather", "parquet")),
+    "parquet"
+  )
+  expect_equal(
+    infer_arrow_format("x.feather", allowed = c("feather", "parquet")),
+    "feather"
+  )
+})

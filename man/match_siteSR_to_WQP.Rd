@@ -8,24 +8,24 @@ match_siteSR_to_WQP(
   wqp_path,
   siteSR_path,
   site_list_path,
-  save_location,
+  output_file,
   time_window = "5 days"
 )
 }
 \arguments{
-\item{wqp_path}{Path to the file (.csv or .feather) storing the AquaMatch
-parameter data to be joined. Should be data from a single parameter (e.g.,
-chlorophyll \emph{a}), as would be saved after using the \code{download_parameters()}
-function.}
+\item{wqp_path}{Path to the file (.csv, .feather, or .parquet) storing the
+AquaMatch parameter data to be joined. Should be data from a single parameter
+(e.g., chlorophyll \emph{a}), as would be saved after using the
+\code{download_parameters()} function.}
 
-\item{siteSR_path}{Path to the file (.feather) storing the stacked version of
-the siteSR dataset (either DSWE1 or DSWE1a). This is the equivalent of the
-direct output of the \code{build_sr()} function when run with siteSR data.}
+\item{siteSR_path}{Path to the file (.feather or .parquet) storing the stacked
+version of the siteSR dataset (either DSWE1 or DSWE1a). This is the equivalent
+of the direct output of the \code{build_sr()} function when run with siteSR data.}
 
 \item{site_list_path}{Path to the file (.csv) storing the site list for siteSR.
 This is included in downloads done using \code{download_siteSR()}.}
 
-\item{save_location}{String. The path where a parquet file containing the output
+\item{output_file}{String. The path where a parquet file containing the output
 should be saved. If the string does not end in ".parquet" then an error will occur.}
 
 \item{time_window}{A string indicating the amount of time on either side of the
@@ -55,7 +55,7 @@ be completed using other filetypes such as .csv or .feather.
 \dontrun{
 # Define theoretical paths to downloaded and stacked data
 wqp_data <- "data/chla_harmonized.feather"
-sr_stacked <- "data/siteSR_DSWE1_full_concatenation.feather"
+sr_stacked <- "data/siteSR_DSWE1_full_concatenation.parquet"
 sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
 out_file <- "data/chla_siteSR_matchups.parquet"
 
@@ -64,7 +64,7 @@ match_siteSR_to_WQP(
   wqp_path = wqp_data,
   siteSR_path = sr_stacked,
   site_list_path = sr_sites,
-  save_location = out_file,
+  output_file = out_file,
   time_window = "5 days"
 )
 }

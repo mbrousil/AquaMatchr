@@ -10,11 +10,11 @@ apply_handoffs(
   correction_method,
   sat_target,
   algal_mask,
-  save_location
+  output_file
 )
 }
 \arguments{
-\item{input_path}{Character. Path to the input .parquet dataset containing surface reflectance data.}
+\item{input_path}{Character. Path to the input .feather or .parquet dataset containing surface reflectance data.}
 
 \item{handoff_path}{Character. Path to the .csv file containing the handoff coefficients.}
 
@@ -29,11 +29,11 @@ Valid options are \code{"LS7"} or \code{"LS8"}.}
 \item{algal_mask}{Logical. If TRUE, the algal mask version of the handoff (DSWE1a)
 will used. Otherwise DSWE1 (i.e., FALSE).}
 
-\item{save_location}{Character. The destination file path for the corrected .parquet file.
+\item{output_file}{Character. The destination file path for the corrected .parquet file.
 Must end in \code{".parquet"}.}
 }
 \value{
-Invisibly returns the \code{save_location} character string.
+Invisibly returns the \code{output_file} character string.
 }
 \description{
 Applies satellite handoff coefficients (using either Roy or Gardner methods) to
@@ -65,7 +65,7 @@ apply_handoffs(
   correction_method = "Gardner_poly",
   sat_target = "LS7",
   algal_mask = FALSE,
-  save_location = out_file_path)
+  output_file = out_file_path
 )
 }
 }
