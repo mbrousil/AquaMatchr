@@ -31,37 +31,35 @@ library(AquaMatchr)
 
 The siteSR and lakeSR datasets are both downloaded as multiple files through their respective functions in this package. This is necessary due to the way they are stored online but also because of the size and complexity of their component parts. Both are available through the Environmental Data Initiative as separate files by DSWE filter (1, confident water vs 1a, confident water and algal mask) and by Landsat mission (4, 5, 7, 8, 9). 
 
-The `AquaMatchr::build_sr()` function can be used to stack files for either siteSR or lakeSR into a single Arrow Table object, which may also be exported to a file. The user must indicate which of the two products is being stacked (`which_sr`), the location where their component files have been stored on disk (`sr_location`), whether the algal mask version is being stacked or not (`algal_mask`), and whether the resulting stack should be saved to disk (`save`). If custom filenames have been given to the SR files then they can be provided using the `sr_files` argument. If `save` is TRUE, then users should provide either a directory or `.feather` file location to export the output to as well via `save_location`.
+The `AquaMatchr::build_sr()` function can be used to stack files for either siteSR or lakeSR into a single parquet file. The user must indicate which of the two products is being stacked (`which_sr`), the location where their component files have been stored on disk (`sr_location`), whether the algal mask version is being stacked or not (`algal_mask`), and where the resulting stack should be saved to disk (`output_file`). If custom filenames have been given to the SR files then they can be provided using the `sr_files` argument. The parquet file type is required by `output_file` in order to maintain consistency with other functions in the package.
 
 ```{r build-sr, eval=FALSE}
 # No sr_files provided here, so default names used by download_siteSR()
 # are assumed by the function
 build_sr(
-    which_sr = "siteSR",
-    # Mission 4,5,7,8,9 files stored in hypothetical data/ folder
-    sr_location = "data",
-    algal_mask = FALSE,
-    save = TRUE,
-    # Exports to .feather file in this folder
-    save_location = "data/matchup_output"
+  which_sr = "siteSR",
+  # Mission 4,5,7,8,9 files stored in hypothetical data/ folder
+  sr_location = "data",
+  algal_mask = FALSE,
+  # Exports to this parquet file
+  output_file = "data/siteSR_DSWE1_full_concatenation.feather"
 )
 ```
 
-We use Arrow Tables from the [{arrow} R package](https://arrow.apache.org/docs/r/articles/data_objects.html) in order to help save on memory because the files involved are very large when combined. It is possible to convert these to more familiar tibbles or data frames if desired, but please be aware that they will take up more memory and thus be more likely to cause R to crash if you do so. For example, the output of `build_sr()` above can be converted to a data.frame using the code below, but would become much larger.
+We use Arrow Datasets from the [{arrow} R package](https://arrow.apache.org/docs/r/articles/data_objects.html) in order to help save on memory because the files involved are very large when combined. It is possible to convert these to more familiar tibbles or data frames if desired, but please be aware that they will take up more memory and thus be more likely to cause R to crash if you do so. For example, the output of `build_sr()` above can be converted to a data.frame using the code below, but would become much larger.
 
 ```{r convert-arrow-table, eval=FALSE}
 test <- build_sr(
-    which_sr = "siteSR",
-    sr_location = "data",
-    algal_mask = FALSE,
-    save = TRUE,
-    save_location = "data/matchup_output"
+  which_sr = "siteSR",
+  sr_location = "data",
+  algal_mask = FALSE,
+  output_file = "data/siteSR_DSWE1_full_concatenation.feather"
 )
 
 test_df <- as.data.frame(test)
 ```
 
-Many data manipulation operations can be completed with Arrow Tables using `dplyr` syntax, so we encourage users to investigate these options. (See, for example, [Data analysis with dplyr syntax](https://arrow.apache.org/docs/r/articles/data_wrangling.html)).
+Many data manipulation operations can be completed with Arrow Datasets using `dplyr` syntax, so we encourage users to investigate these options. (See, for example, [Data analysis with dplyr syntax](https://arrow.apache.org/docs/r/articles/data_wrangling.html)).
 
 <br>
 
@@ -75,15 +73,15 @@ The `match_siteSR_to_WQP()` function requires:
 + `siteSR_path`: the path to the siteSR dataset
 + `site_list_path`: the path to the .csv file containing the siteSR site list (included in downloads done using `download_siteSR()`)
 + `time_window`: the amount of time on either side of the *in-situ* measurements that should be used to match to siteSR overpass times
-+ `save_location`: The path where a parquet file containing the output should be saved
++ `output_file`: The path where a parquet file containing the output should be saved
 
 ```{r match-siteSR-to-WQP, eval=FALSE}
 # Example matching harmonized chlorophyll a to siteSR with a 5-day window:
 match_siteSR_to_WQP(
   wqp_path = "data/chla_harmonized.feather",
-  siteSR_path = "data/matchup_output/siteSR_DSWE1_full_concatenation.feather",
+  siteSR_path = "data/siteSR_DSWE1_full_concatenation.feather",
   site_list_path = "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv",
-  save_location = "data/matchup_output/chla_siteSR_DSWE1_matchups.parquet",
+  output_file = "data/matchup_output/chla_siteSR_DSWE1_matchups.parquet",
   time_window = "5 days"
 )
 ```
@@ -125,7 +123,7 @@ apply_handoffs(
   correction_method = "Gardner_poly",
   sat_target = "LS7",
   algal_mask = "FALSE",
-  save_location = "data/matchup_output/chla_siteSR_DSWE1_matchups_gardner.parquet"
+  output_file = "data/matchup_output/chla_siteSR_DSWE1_matchups_gardner.parquet"
 )
 ```
 

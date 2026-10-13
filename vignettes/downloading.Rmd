@@ -109,7 +109,7 @@ For example, the code below would download the DSWE1 version of siteSR and would
 
 ```{r sitesr-download, eval = FALSE}
 download_siteSR(
-  save_location = "path/to/folder/of/choice",
+  download_folder = "path/to/folder/of/choice",
   algal_mask = FALSE,
   ask = TRUE
 )
@@ -130,7 +130,7 @@ The lakeSR handoff coefficients file is included with this download because both
 The equivalent `download_lakeSR()` call would download lakeSR files:
 ```{r lakesr-download, eval = FALSE}
 download_lakeSR(
-  save_location = "path/to/folder/of/choice",
+  download_folder = "path/to/folder/of/choice",
   algal_mask = FALSE,
   ask = TRUE
 )
@@ -153,7 +153,7 @@ Scene-level metadata is also available as part of siteSR and lakeSR on EDI. The 
 
 ```{r scene-metadata-download, eval = FALSE}
 download_sceneMetadata(
-  save_location = "path/to/folder/of/choice",
+  download_folder = "path/to/folder/of/choice",
   product = "siteSR",
   ask = TRUE
 )
@@ -172,14 +172,10 @@ The schemas of the two files are similar but not identical: The Landsat 4/5/7 ve
 The [riverSR dataset](https://doi.org/10.5281/zenodo.4304567) is stored on Zenodo, and due to its large size we download it without bringing it into the R environment. This takes place through the `AquaMatchr::download_riverSR()` function, which requires a download path to be provided by the user. The `timeout_length` for `download_riverSR()` can also be specified but by default is 4,000 seconds, which typically worked in testing for this function (though it may vary throughout time). RiverSR will be downloaded and saved as `"riverSR_usa_v1.1.feather"` in the folder specified in the `save_location` argument.
 
 ```{r riversr-download, eval = FALSE}
-download_riverSR(save_location = "path/to/folder/of/choice")
+download_riverSR(download_folder = "path/to/folder/of/choice")
 
 # Can be loaded into environment using
 riverSR <- read_feather("path/to/folder/of/choice/riverSR_usa_v1.1.feather")
 ```
 
 The riverSR download will be nearly 14 GB in size and the download may take 30 minutes or more to complete.
-
-
-
-
