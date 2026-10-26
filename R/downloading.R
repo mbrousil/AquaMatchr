@@ -253,8 +253,11 @@ download_riverSR <- function(download_folder, timeout_length = 6000, force = FAL
 #' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
 #' @param version Either "newest" or an integer corresponding to the data package
 #' version to use.
-#' @param ask Logical. Should the user be asked before downloading and overwriting
-#' siteSR files that already exist locally?
+#' @param update Character. How should updates to existing files be handled? Options are:
+#' + "ask": prompt before replacing an existing local file
+#' + "always": download and replace it
+#' + "never": reuse the local file whenever it exists
+#' + "if_changed": check the remote “latest” file and download only if it differs
 #'
 #' @return A named character vector containing the local file paths for all
 #' downloaded siteSR datasets. Returned invisibly.
@@ -264,6 +267,7 @@ download_riverSR <- function(download_folder, timeout_length = 6000, force = FAL
 #' @importFrom EDIutils read_data_package_citation read_data_entity_names read_data_entity list_data_package_revisions
 #' @importFrom readr read_csv write_csv
 #' @importFrom cli cli_alert_info cli_alert_success cli_abort
+#' @importFrom digest digest
 #'
 #' @examples
 #' \dontrun{
@@ -278,19 +282,19 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
 
   # Filenames to be used for dswe1 and 1a, respectively:
   dswe1_names <- c(
-    "siteSR_Landsat4_DSWE1_2025-06-06.feather",
-    "siteSR_Landsat5_DSWE1_2025-06-06.feather",
-    "siteSR_Landsat7_DSWE1_2025-06-06.feather",
-    "siteSR_Landsat8_DSWE1_2025-06-06.feather",
-    "siteSR_Landsat9_DSWE1_2025-06-06.feather"
+    "siteSR_Landsat4_DSWE1.feather",
+    "siteSR_Landsat5_DSWE1.feather",
+    "siteSR_Landsat7_DSWE1.feather",
+    "siteSR_Landsat8_DSWE1.feather",
+    "siteSR_Landsat9_DSWE1.feather"
   )
 
   dswe1a_names <- c(
-    "siteSR_Landsat4_DSWE1a_2025-06-06.feather",
-    "siteSR_Landsat5_DSWE1a_2025-06-06.feather",
-    "siteSR_Landsat7_DSWE1a_2025-06-06.feather",
-    "siteSR_Landsat8_DSWE1a_2025-06-06.feather",
-    "siteSR_Landsat9_DSWE1a_2025-06-06.feather"
+    "siteSR_Landsat4_DSWE1a.feather",
+    "siteSR_Landsat5_DSWE1a.feather",
+    "siteSR_Landsat7_DSWE1a.feather",
+    "siteSR_Landsat8_DSWE1a.feather",
+    "siteSR_Landsat9_DSWE1a.feather"
   )
 
   # No algal mask (DWSE1)
@@ -344,30 +348,48 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
                    .f = ~{
                      out_name <- switch(
                        .x$entityName,
-                       "siteSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat4_DSWE1_2025-06-06.feather",
-                       "siteSR data from Landsat 4, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat4_DSWE1a_2025-06-06.feather",
-                       "siteSR data from Landsat 5, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat5_DSWE1_2025-06-06.feather",
-                       "siteSR data from Landsat 5, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat5_DSWE1a_2025-06-06.feather",
-                       "siteSR data from Landsat 7, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat7_DSWE1_2025-06-06.feather",
-                       "siteSR data from Landsat 7, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat7_DSWE1a_2025-06-06.feather",
-                       "siteSR data from Landsat 8, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat8_DSWE1_2025-06-06.feather",
-                       "siteSR data from Landsat 8, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat8_DSWE1a_2025-06-06.feather",
-                       "siteSR data from Landsat 9, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat9_DSWE1_2025-06-06.feather",
-                       "siteSR data from Landsat 9, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat9_DSWE1a_2025-06-06.feather"
+                       "siteSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat4_DSWE1.feather",
+                       "siteSR data from Landsat 4, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat4_DSWE1a.feather",
+                       "siteSR data from Landsat 5, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat5_DSWE1.feather",
+                       "siteSR data from Landsat 5, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat5_DSWE1a.feather",
+                       "siteSR data from Landsat 7, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat7_DSWE1.feather",
+                       "siteSR data from Landsat 7, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat7_DSWE1a.feather",
+                       "siteSR data from Landsat 8, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat8_DSWE1.feather",
+                       "siteSR data from Landsat 8, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat8_DSWE1a.feather",
+                       "siteSR data from Landsat 9, DSWE filter for confident water (DSWE = 1)" = "siteSR_Landsat9_DSWE1.feather",
+                       "siteSR data from Landsat 9, DSWE filter for confident water and algal mask (DSWE = 1a)" = "siteSR_Landsat9_DSWE1a.feather"
                      )
 
-                     # Read in data as raw bytes
-                     raw_bytes <- EDIutils::read_data_entity(packageId = site_sr_id,
-                                                             entityId = .x$entityId)
-                     # Parse
-                     temp_file <- arrow::read_feather(raw_bytes)
+                     # Location to save file to
+                     out_path <- file.path(download_folder, out_name)
+                     # File entity ID
+                     entity_id <- .x$entityId[[1]]
 
-                     arrow::write_feather(
-                       x = temp_file,
-                       sink = file.path(download_folder, out_name)
+                     # Get the file's checksum from EDI
+                     remote_checksum <- EDIutils::read_data_entity_checksum(
+                       packageId = site_sr_id,
+                       entityId = entity_id
                      )
 
-                     cli::cli_alert_success("Downloaded {.val {(.x$entityName)}} as {.file {out_name}}.")
+                     # Check the local version of the file (if it exists) and
+                     # then download, saving a small file alongside it that
+                     # contains checksum metadata
+                     result <- download_w_sidecar(
+                       download_filepath = out_path,
+                       entity_key = .x$entityName[[1]],
+                       package_id = site_sr_id,
+                       entity_id = entity_id,
+                       remote_checksum = remote_checksum,
+                       download_to_path = function(path) {
+                         write_edi_entity(path, site_sr_id, entity_id, format = "feather")
+                       }
+                     )
+
+                     if (result$downloaded) {
+                       cli::cli_alert_success("Downloaded {.val {(.x$entityName)}} as {.file {out_name}}.")
+                     } else {
+                       cli::cli_alert_info("Using current local file {.file {out_name}}.")
+                     }
 
                      # Return the path to the loop
                      return(file.path(download_folder, out_name))

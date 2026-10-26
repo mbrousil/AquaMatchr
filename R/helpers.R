@@ -141,6 +141,64 @@ construct_id <- function(identifier, version){
 
 }
 
+#' Generate checksum for local file from EDI
+#'
+#' @param file_path
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+generate_local_checksum <- function(file_path){
+  digest::digest(object = file_path, algo = "sha1", file = TRUE)
+}
+
+download_w_sidecar <- function(download_filepath, entity_key, package_id, entity_id,
+                               remote_checksum, download_to_path){
+
+  # Path to metadata file
+  sidecar <- paste0(download_filepath, ".edi.rds")
+  # Obtained from EDI
+  remote_checksum <- tolower(remote_checksum)
+
+  # Retrieve metadata from sidecar if it exists
+  metadata <- if (file.exists(sidecar)) {
+    tryCatch(readRDS(sidecar), error = function(e) NULL)
+  } else {
+    NULL
+  }
+
+  # Check if the info in an already existing sidecar is up-to-date
+  cache_is_current <- file.exists(download_filepath) &&
+    !is.null(metadata) &&
+    identical(metadata$entity_key, entity_key) &&
+    identical(tolower(metadata$remote_checksum), remote_checksum) &&
+    identical(metadata$local_checksum, generate_local_checksum(download_filepath))
+
+  # If cache_is_current is TRUE...
+  if (cache_is_current) {
+    return(invisible(list(path = path, downloaded = FALSE)))
+  }
+
+  # if cache_is_current is FALSE...
+  dir.create(dirname(download_filepath), recursive = TRUE, showWarnings = FALSE)
+  download_to_path(download_filepath)
+
+  # Create and write metadata sidecar
+  metadata <- list(
+    entity_key = entity_key,
+    package_id = package_id,
+    entity_id = entity_id,
+    remote_checksum = remote_checksum,
+    local_checksum = generate_local_checksum(download_filepath),
+    checked_at = Sys.time()
+  )
+  saveRDS(metadata, sidecar)
+
+  invisible(list(path = path, downloaded = TRUE))
+}
+
+
 #' Get Arrow schemas for datasets that will be joined
 #'
 #' @description A helper function that generates `arrow::schema()` objects to
