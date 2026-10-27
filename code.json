@@ -1,0 +1,48 @@
+[
+  {
+    "name": "USGS Open Source GitLab",
+    "organization": "U.S. Geological Survey",
+    "description": "This repository includes all code necessary to render the AquaMatchr R package. All questions about the scripts and files contained within should be directed to Michael Meyer (mfmeyer@usgs.gov).",
+    "version": "1.0.0",
+    "status": "Production",
+
+    "permissions": {
+      "usageType": "openSource",
+      "licenses": [
+        {
+          "name": "Public Domain, CC0-1.0",
+          "URL": "https://code.usgs.gov/remote_sensing_limnology/AquaMatchr/-/raw/1.0.0/LICENSE.md"
+        }
+      ]
+    },
+
+    "downloadURL": "https://code.usgs.gov/remote_sensing_limnology/AquaMatchr/-/archive/1.0.0/AquaMatchr-1.0.0.zip",
+    "disclaimerURL": "https://code.usgs.gov/remote_sensing_limnology/AquaMatchr/-/raw/1.0.0/DISCLAIMER.md",
+    "repositoryURL": "https://code.usgs.gov/remote_sensing_limnology/AquaMatchr.git",
+    "vcs": "git",
+
+    "laborHours": 0,
+
+    "tags": [
+      "limnology",
+      "classification",
+      "ecology",
+      "remote sensing"
+    ],
+
+    "languages": [
+      "R", 
+      "python",
+      "javascript"
+    ],
+
+    "contact": {
+      "name": "Michael Meyer",
+      "email": "mfmeyer@usgs.gov"
+    },
+
+    "date": {
+      "metadataLastUpdated": "2026-10-23"
+    }
+  }
+]
