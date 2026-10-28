@@ -151,6 +151,31 @@ generate_local_checksum <- function(file_path){
   digest::digest(object = file_path, algo = "sha1", file = TRUE)
 }
 
+#' Return the ID of a single EDI entity by name
+#'
+#' @param package_id EDI data package ID to search in
+#' @param entity_name Name of the entity whose ID should be returned
+#'
+#' @return The entity ID of the single entity named `entity_name` in
+#'   `package_id`. Aborts if zero or multiple entities match, e.g. if the
+#'   contents of the EDI package have changed.
+#' @noRd
+pull_entity_id <- function(package_id, entity_name) {
+  entity_ids <- EDIutils::read_data_entity_names(packageId = package_id) %>%
+    dplyr::filter(entityName == entity_name) %>%
+    dplyr::pull(entityId)
+
+  if (length(entity_ids) != 1L) {
+    cli::cli_abort(c(
+      "Expected exactly one EDI entity named {.val {entity_name}} in package",
+      "{.val {package_id}}, but found {length(entity_ids)}.",
+      "i" = "The contents of the EDI package may have changed."
+    ), call = NULL)
+  }
+
+  entity_ids
+}
+
 #' Download an EDI entity with a checksum sidecar
 #'
 #' @description
@@ -165,6 +190,10 @@ generate_local_checksum <- function(file_path){
 #' `update = "if_changed"`. A missing file is downloaded in every mode.
 #' The caller handles interactive prompts; this helper does not accept the
 #' `"ask"` update option.
+#'
+#' The file is downloaded to a temporary location in the destination directory
+#' and moved into place once the download finishes, so an interrupted download
+#' does not leave a partial file at the destination.
 #'
 #' @param download_filepath The path to the local output file
 #' @param update Character. One of `"always"`, `"never"`, or `"if_changed"`:
@@ -210,7 +239,10 @@ download_w_sidecar <- function(download_filepath, update,
                                download_to_path){
   # Check
   if (!update %in% c("always", "never", "if_changed")) {
-    stop("update must be 'always', 'never', or 'if_changed'")
+    cli::cli_abort(
+      "{.arg update} must be one of 'always', 'never', or 'if_changed'.",
+      call = NULL
+    )
   }
 
   sidecar <- paste0(download_filepath, ".edi.rds")
@@ -257,10 +289,30 @@ download_w_sidecar <- function(download_filepath, update,
   remote_checksum <- tolower(trimws(remote_checksum))
 
   dir.create(dirname(download_filepath), recursive = TRUE, showWarnings = FALSE)
-  # Don't leave metadata claiming an interrupted write is valid
-  unlink(sidecar)
-  # Download the remote entity
-  download_to_path(download_filepath)
+
+  # Download to a temporary file in the destination directory and move it into
+  # place only once the write finishes, so an interrupted download never
+  # leaves a partial file at the final path
+  temp_path <- tempfile(
+    pattern = paste0(".", basename(download_filepath), "."),
+    tmpdir = dirname(download_filepath)
+  )
+  on.exit(unlink(temp_path), add = TRUE)
+
+  download_to_path(temp_path)
+
+  if (!file.exists(temp_path)) {
+    cli::cli_abort(
+      "{.arg download_to_path} did not create a file at the temporary download location.",
+      call = NULL
+    )
+  }
+  if (!file.rename(temp_path, download_filepath)) {
+    cli::cli_abort(
+      "Could not move the downloaded file into place at {.file {download_filepath}}.",
+      call = NULL
+    )
+  }
 
   # Construct the sidecar metadata
   metadata <- list(

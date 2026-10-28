@@ -61,6 +61,9 @@ re-downloads siteSR files if the corresponding sidecar is
 missing, the remote file has changed, or the local copy has been modified.
 "never" keeps existing files as-is without checking their version. Matching
 filenames are not treated as evidence that the files themselves are up-to-date.
+Note that in "if_changed" mode, the local file's checksum is recomputed on
+every call, which can take several seconds for the multi-gigabyte siteSR
+Feather files.
 }
 \note{
 The downloaded datasets will be large (several GB in size in total), so users
