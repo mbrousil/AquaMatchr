@@ -141,50 +141,128 @@ construct_id <- function(identifier, version){
 
 }
 
-#' Generate checksum for local file from EDI
+#' Generate checksum for local file
 #'
-#' @param file_path
+#' @param file_path The path to the local file
 #'
-#' @returns
-#' @export
-#'
-#' @examples
+#' @returns A single SHA-1 checksum string for the file at `file_path`
+#' @noRd
 generate_local_checksum <- function(file_path){
   digest::digest(object = file_path, algo = "sha1", file = TRUE)
 }
 
-download_w_sidecar <- function(download_filepath, entity_key, package_id, entity_id,
-                               remote_checksum, download_to_path){
+#' Download an EDI entity with a checksum sidecar
+#'
+#' @description
+#' Reuse or replace a local file according to user specified `update`, and record
+#' checksums alongside files written by `download_to_path`.
+#'
+#' @details
+#' The sidecar is saved as `<download_filepath>.edi.rds`. It records the EDI
+#' entity checksum and a separate checksum of the locally saved file. These
+#' checksums may differ when the download callback parses and rewrites the data.
+#' An existing file without a readable, matching sidecar is replaced under
+#' `update = "if_changed"`. A missing file is downloaded in every mode.
+#' The caller handles interactive prompts; this helper does not accept the
+#' `"ask"` update option.
+#'
+#' @param download_filepath The path to the local output file
+#' @param update Character. One of `"always"`, `"never"`, or `"if_changed"`:
+#'   `"always"` replaces the file; `"never"` keeps an existing file without
+#'   checking its contents; `"if_changed"` reuses it only when the sidecar
+#'   confirms that the selected EDI entity and the local file are unchanged
+#' @param package_id EDI data package ID containing the selected entity
+#' @param entity_id ID of the selected entity within `package_id`
+#' @param entity_key Stable label identifying the entity across package revisions
+#' @param download_to_path A function accepting one output path. It must download
+#'   the selected entity and write the local file to that path
+#'
+#' @return Invisibly, a list with `path` (the local file path) and `downloaded`
+#'   (`TRUE` if written on this call; `FALSE` if an existing file was reused).
+#' @noRd
+#'
+#' @examples
+#' \dontrun{
+#' out_path <- file.path(tempdir(), "sites_list.csv")
+#' site_sr_id <- "edi.2254.1"
+#' entity_key <- "siteSR sites list"
+#' entity_id <- "9d53e6da60d4cef8ff0d59493c84aee6"
+#'
+#' download_w_sidecar(
+#'   download_filepath = out_path,
+#'   update = "always",
+#'   package_id = site_sr_id,
+#'   entity_id = entity_id,
+#'   entity_key = entity_key,
+#'   download_to_path = function(out_path) {
+#'     # Raw EDI data
+#'     raw_bytes <- EDIutils::read_data_entity(site_sr_id, entity_id)
+#'     # Into csv
+#'     readr::write_csv(readr::read_csv(raw_bytes), out_path)
+#'   }
+#' )
+#'
+#' # Check contents
+#' dir(dirname(out_path))
+#' }
+download_w_sidecar <- function(download_filepath, update,
+                               package_id, entity_id, entity_key,
+                               download_to_path){
+  # Check
+  if (!update %in% c("always", "never", "if_changed")) {
+    stop("update must be 'always', 'never', or 'if_changed'")
+  }
 
-  # Path to metadata file
   sidecar <- paste0(download_filepath, ".edi.rds")
-  # Obtained from EDI
-  remote_checksum <- tolower(remote_checksum)
+  file_is_present <- file.exists(download_filepath) && !dir.exists(download_filepath)
 
-  # Retrieve metadata from sidecar if it exists
-  metadata <- if (file.exists(sidecar)) {
-    tryCatch(readRDS(sidecar), error = function(e) NULL)
-  } else {
-    NULL
+  # If user specifies "never" and the file exists then we can skip
+  if (update == "never" && file_is_present) {
+    return(invisible(list(path = download_filepath, downloaded = FALSE)))
   }
 
-  # Check if the info in an already existing sidecar is up-to-date
-  cache_is_current <- file.exists(download_filepath) &&
-    !is.null(metadata) &&
-    identical(metadata$entity_key, entity_key) &&
-    identical(tolower(metadata$remote_checksum), remote_checksum) &&
-    identical(metadata$local_checksum, generate_local_checksum(download_filepath))
+  remote_checksum <- NULL
 
-  # If cache_is_current is TRUE...
-  if (cache_is_current) {
-    return(invisible(list(path = path, downloaded = FALSE)))
+  # For "if_changed", compare the current remote entity to the sidecar
+  if (update == "if_changed" && file_is_present) {
+
+    remote_checksum <- EDIutils::read_data_entity_checksum(
+      packageId = package_id, entityId = entity_id
+    )
+    remote_checksum <- tolower(trimws(remote_checksum))
+
+    metadata <- if (file.exists(sidecar)) {
+      tryCatch(readRDS(sidecar), error = function(e) NULL)
+    } else {
+      NULL
+    }
+
+    cache_is_current <- is.list(metadata) &&
+      identical(metadata$entity_key, entity_key) &&
+      identical(tolower(metadata$remote_checksum), remote_checksum) &&
+      identical(metadata$local_checksum,
+                generate_local_checksum(download_filepath))
+
+    if (cache_is_current) {
+      return(invisible(list(path = download_filepath, downloaded = FALSE)))
+    }
   }
 
-  # if cache_is_current is FALSE...
+  # Download remote entity and create a sidecar for all other cases
+  if (is.null(remote_checksum)) {
+    remote_checksum <- EDIutils::read_data_entity_checksum(
+      packageId = package_id, entityId = entity_id
+    )
+  }
+  remote_checksum <- tolower(trimws(remote_checksum))
+
   dir.create(dirname(download_filepath), recursive = TRUE, showWarnings = FALSE)
+  # Don't leave metadata claiming an interrupted write is valid
+  unlink(sidecar)
+  # Download the remote entity
   download_to_path(download_filepath)
 
-  # Create and write metadata sidecar
+  # Construct the sidecar metadata
   metadata <- list(
     entity_key = entity_key,
     package_id = package_id,
@@ -195,7 +273,7 @@ download_w_sidecar <- function(download_filepath, entity_key, package_id, entity
   )
   saveRDS(metadata, sidecar)
 
-  invisible(list(path = path, downloaded = TRUE))
+  invisible(list(path = download_filepath, downloaded = TRUE))
 }
 
 

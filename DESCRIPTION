@@ -20,6 +20,7 @@ Imports:
     cli,
     DBI,
     dbplyr,
+    digest,
     dplyr,
     duckdb,
     EDIutils,
