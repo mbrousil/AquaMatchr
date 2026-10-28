@@ -8,7 +8,7 @@ download_sceneMetadata(
   download_folder,
   product = c("siteSR", "lakeSR"),
   version = "newest",
-  ask = TRUE
+  update = "ask"
 )
 }
 \arguments{
@@ -23,12 +23,20 @@ particular package's revision lineage.}
 \item{version}{Either "newest" or an integer corresponding to the data
 package version to use.}
 
-\item{ask}{Logical. Should the user be asked before downloading and
-overwriting scene metadata files that already exist locally?}
+\item{update}{Character. How should updates to existing files be handled? Options are:
+\itemize{
+\item "ask": prompt before replacing an existing local file
+\item "always": download and replace it
+\item "never": reuse the local file whenever it exists
+\item "if_changed": reuse a local file if the selected remote version is unchanged
+and the local copy has not been modified; otherwise download it
+}
+
+Note that with "ask", a single prompt covers both scene metadata files.}
 }
 \value{
 A named character vector containing the local file paths for the
-downloaded scene metadata datasets. Returned invisibly.
+scene metadata datasets (either downloaded or reused). Returned invisibly.
 }
 \description{
 A function to facilitate downloading of Landsat scene-level metadata that
@@ -54,6 +62,16 @@ columns, while the Landsat 8/9 file splits \code{IMAGE_QUALITY} into
 Both files share a \code{sat_id} column (derived from Earth Engine's
 \code{system:index}) that can be used to join scene-level metadata back onto
 siteSR/lakeSR rows, which carry the same \code{sat_id}.
+
+When a file is downloaded, a small metadata file (a "sidecar") is created
+containing information about the file. The "if_changed" option
+re-downloads a scene metadata file if its sidecar is missing, the remote
+file has changed, or the local copy has been modified. "never" keeps existing
+files as-is without checking their version. Matching filenames are not
+treated as evidence that the files themselves are up-to-date.
+Because the scene-level metadata content is identical in the siteSR and
+lakeSR packages and sidecars are keyed on the EDI entity name, "if_changed"
+may reuse a file that was originally downloaded via the other \code{product}.
 }
 \note{
 The downloaded files are large (tens of MB each), so make sure you have

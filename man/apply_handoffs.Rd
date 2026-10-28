@@ -56,7 +56,7 @@ range used in calculating the handoff coefficient for the selected method.
 \dontrun{
 # Define theoretical paths to downloaded and stacked data
 input_file_path <- "data/chla_siteSR_DSWE1_matchups.parquet"
-handoff_file_path <- "data/lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+handoff_file_path <- "data/lakeSR_collated_handoffs.csv"
 out_file_path <- "data/chla_siteSR_DSWE1_matchups_corrected.parquet"
 
 apply_handoffs(

@@ -56,7 +56,7 @@ be completed using other filetypes such as .csv or .feather.
 # Define theoretical paths to downloaded and stacked data
 wqp_data <- "data/chla_harmonized.feather"
 sr_stacked <- "data/siteSR_DSWE1_full_concatenation.parquet"
-sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
+sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info.csv"
 out_file <- "data/chla_siteSR_matchups.parquet"
 
 # Run the matchups with a 5-day window

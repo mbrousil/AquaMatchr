@@ -176,6 +176,33 @@ pull_entity_id <- function(package_id, entity_name) {
   entity_ids
 }
 
+#' Validate and normalize the update argument
+#'
+#' @param update Character. How updates to existing files should be handled.
+#'   One of "ask", "always", "never", or "if_changed".
+#'
+#' @return The validated update option, lowercased and whitespace-trimmed.
+#' @noRd
+check_update_arg <- function(update) {
+  if (!is.character(update) || length(update) != 1L || is.na(update)) {
+    cli::cli_abort(
+      "{.arg update} must be one of 'ask', 'always', 'never', or 'if_changed'.",
+      call = NULL
+    )
+  }
+
+  update <- tolower(trimws(update))
+
+  if (!update %in% c("ask", "always", "never", "if_changed")) {
+    cli::cli_abort(
+      "{.arg update} must be one of 'ask', 'always', 'never', or 'if_changed'.",
+      call = NULL
+    )
+  }
+
+  update
+}
+
 #' Download an EDI entity with a checksum sidecar
 #'
 #' @description

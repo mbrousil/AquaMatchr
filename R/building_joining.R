@@ -90,26 +90,26 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
   # Get default filename vectors to use
   default_filenames <- switch(
     input_string,
-    "siteSR_DSWE1" = c("siteSR_Landsat4_DSWE1_2025-06-06.feather",
-                       "siteSR_Landsat5_DSWE1_2025-06-06.feather",
-                       "siteSR_Landsat7_DSWE1_2025-06-06.feather",
-                       "siteSR_Landsat8_DSWE1_2025-06-06.feather",
-                       "siteSR_Landsat9_DSWE1_2025-06-06.feather"),
-    "siteSR_DSWE1a" = c("siteSR_Landsat4_DSWE1a_2025-06-06.feather",
-                        "siteSR_Landsat5_DSWE1a_2025-06-06.feather",
-                        "siteSR_Landsat7_DSWE1a_2025-06-06.feather",
-                        "siteSR_Landsat8_DSWE1a_2025-06-06.feather",
-                        "siteSR_Landsat9_DSWE1a_2025-06-06.feather"),
-    "lakeSR_DSWE1" = c("lakeSR_Landsat4_DSWE1_2025-06-04.feather",
-                       "lakeSR_Landsat5_DSWE1_2025-06-04.feather",
-                       "lakeSR_Landsat7_DSWE1_2025-06-04.feather",
-                       "lakeSR_Landsat8_DSWE1_2025-06-04.feather",
-                       "lakeSR_Landsat9_DSWE1_2025-06-04.feather"),
-    "lakeSR_DSWE1a" = c( "lakeSR_Landsat4_DSWE1a_2025-06-04.feather",
-                         "lakeSR_Landsat5_DSWE1a_2025-06-04.feather",
-                         "lakeSR_Landsat7_DSWE1a_2025-06-04.feather",
-                         "lakeSR_Landsat8_DSWE1a_2025-06-04.feather",
-                         "lakeSR_Landsat9_DSWE1a_2025-06-04.feather")
+    "siteSR_DSWE1" = c("siteSR_Landsat4_DSWE1.feather",
+                       "siteSR_Landsat5_DSWE1.feather",
+                       "siteSR_Landsat7_DSWE1.feather",
+                       "siteSR_Landsat8_DSWE1.feather",
+                       "siteSR_Landsat9_DSWE1.feather"),
+    "siteSR_DSWE1a" = c("siteSR_Landsat4_DSWE1a.feather",
+                        "siteSR_Landsat5_DSWE1a.feather",
+                        "siteSR_Landsat7_DSWE1a.feather",
+                        "siteSR_Landsat8_DSWE1a.feather",
+                        "siteSR_Landsat9_DSWE1a.feather"),
+    "lakeSR_DSWE1" = c("lakeSR_Landsat4_DSWE1.feather",
+                       "lakeSR_Landsat5_DSWE1.feather",
+                       "lakeSR_Landsat7_DSWE1.feather",
+                       "lakeSR_Landsat8_DSWE1.feather",
+                       "lakeSR_Landsat9_DSWE1.feather"),
+    "lakeSR_DSWE1a" = c("lakeSR_Landsat4_DSWE1a.feather",
+                        "lakeSR_Landsat5_DSWE1a.feather",
+                        "lakeSR_Landsat7_DSWE1a.feather",
+                        "lakeSR_Landsat8_DSWE1a.feather",
+                        "lakeSR_Landsat9_DSWE1a.feather")
   )
 
   # Confirm file existence, standardize their names once confirmed
@@ -221,7 +221,7 @@ build_sr <- function(which_sr, sr_location, algal_mask, sr_files = NULL,
 #' # Define theoretical paths to downloaded and stacked data
 #' wqp_data <- "data/chla_harmonized.feather"
 #' sr_stacked <- "data/siteSR_DSWE1_full_concatenation.parquet"
-#' sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv"
+#' sr_sites <- "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info.csv"
 #' out_file <- "data/chla_siteSR_matchups.parquet"
 #'
 #' # Run the matchups with a 5-day window
@@ -429,7 +429,7 @@ match_siteSR_to_WQP <- function(wqp_path, siteSR_path, site_list_path,
 #' \dontrun{
 #' # Define theoretical paths to downloaded and stacked data
 #' input_file_path <- "data/chla_siteSR_DSWE1_matchups.parquet"
-#' handoff_file_path <- "data/lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv"
+#' handoff_file_path <- "data/lakeSR_collated_handoffs.csv"
 #' out_file_path <- "data/chla_siteSR_DSWE1_matchups_corrected.parquet"
 #'
 #' apply_handoffs(
