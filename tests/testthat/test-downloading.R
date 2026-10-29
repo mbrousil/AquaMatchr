@@ -20,7 +20,8 @@ test_that("Unexpected parameters fail", {
 test_that("Multiple (mocked) parameters work", {
   # Mock internal auth helper so it passes
   testthat::local_mocked_bindings(
-    check_edi_auth = function() TRUE
+    check_edi_auth = function() TRUE,
+    .package = "AquaMatchr"
   )
 
   # Mock the EDIutils functions to intercept the web requests
@@ -84,6 +85,65 @@ test_that("download_parameters('cdom') successfully downloads and parses 35MB da
   expect_gt(nrow(result$cdom), 0)
 })
 
+# Build a mock EDI entity table for the SR download tests: `n_landsat` Landsat
+# data entities (DSWE = 1) plus any auxiliary entities such as the sites list
+mock_sr_entities <- function(prefix, extra_entities = character(),
+                             n_landsat = 5) {
+  landsat_names <- paste0(
+    prefix, " data from Landsat ", c(4, 5, 7, 8, 9)[seq_len(n_landsat)],
+    ", DSWE filter for confident water (DSWE = 1)"
+  )
+  entity_names <- c(landsat_names, extra_entities)
+
+  data.frame(
+    entityName = entity_names,
+    entityId = paste0("mock_", seq_along(entity_names)),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Mock the pieces that the sidecar machinery and mocked downloads need:
+# a fixed checksum from EDI, byte "downloads" that return empty raw vectors,
+# and writer mocks that actually create files, because download_w_sidecar()
+# aborts when the download callback does not produce a file
+local_sr_download_mocks <- function(entity_table) {
+  # local_mocked_bindings() registers its cleanup on the calling frame, so
+  # from inside this helper the mocks must be tied to the test body frame
+  # (.env = parent.frame()); otherwise they are torn down when the helper
+  # returns.
+  testthat::local_mocked_bindings(
+    ask_user = function(...) "yes",
+    construct_id = function(...) "edi.mock.1",
+    .package = "AquaMatchr",
+    .env = parent.frame()
+  )
+
+  testthat::local_mocked_bindings(
+    read_data_entity_names = function(...) entity_table,
+    read_data_package_citation = function(...) "Mock Citation",
+    read_data_entity_checksum = function(...) {
+      "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+    },
+    read_data_entity = function(...) raw(0),
+    .package = "EDIutils",
+    .env = parent.frame()
+  )
+
+  # Mock file parsers/writers to prevent crashes from fake raw bytes
+  testthat::local_mocked_bindings(
+    read_feather = function(...) data.frame(a = 1),
+    write_feather = function(x, sink, ...) file.create(sink),
+    .package = "arrow",
+    .env = parent.frame()
+  )
+  testthat::local_mocked_bindings(
+    read_csv = function(...) data.frame(a = 1),
+    write_csv = function(x, file, ...) file.create(file),
+    .package = "readr",
+    .env = parent.frame()
+  )
+}
+
 test_that("download_siteSR aborts when user declines to overwrite files", {
   # Create temporary directory
   tmp_dir <- tempfile()
@@ -91,7 +151,7 @@ test_that("download_siteSR aborts when user declines to overwrite files", {
   on.exit(unlink(tmp_dir, recursive = TRUE))
 
   # Create a dummy file that matches a standard output name to trigger the prompt
-  dummy_file <- file.path(tmp_dir, "siteSR_Landsat4_DSWE1_2025-06-06.feather")
+  dummy_file <- file.path(tmp_dir, "siteSR_Landsat4_DSWE1.feather")
   file.create(dummy_file)
 
   # Mock ask_user to simulate the user typing "no". Mock construct_id to
@@ -100,12 +160,14 @@ test_that("download_siteSR aborts when user declines to overwrite files", {
   testthat::with_mocked_bindings(
     {
       expect_error(
-        download_siteSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
+        download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                        update = "ask"),
         regexp = "Cancelled by user."
       )
     },
     ask_user = function(...) "no",
-    construct_id = function(...) "edi.mock.1"
+    construct_id = function(...) "edi.mock.1",
+    .package = "AquaMatchr"
   )
 })
 
@@ -116,60 +178,51 @@ test_that("download_siteSR proceeds when user agrees to overwrite files", {
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
 
-  dummy_file <- file.path(tmp_dir, "siteSR_Landsat4_DSWE1_2025-06-06.feather")
+  dummy_file <- file.path(tmp_dir, "siteSR_Landsat4_DSWE1.feather")
   file.create(dummy_file)
 
-  # Mock internal functions (no .package needed; defaults to AquaMatchr)
-  testthat::local_mocked_bindings(
-    ask_user = function(...) "yes",
-    construct_id = function(...) "edi.mock.1"
-  )
-
-  # Mock external EDIutils functions
-  testthat::local_mocked_bindings(
-    read_data_entity_names = function(...) {
-      data.frame(
-        entityName = c(
-          "siteSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)",
-          "siteSR sites list",
-          "lakeSR handoff coefficients"
-        ),
-        entityId = c("mock_1", "mock_2", "mock_3"),
-        stringsAsFactors = FALSE
-      )
-    },
-    read_data_package_citation = function(...) "Mock Citation",
-    .package = "EDIutils"
-  )
-
-  # Mock file parsers/writers to prevent crashes from fake raw bytes
-  # Since we are faking the EDI downloads, actual read/write functions
-  # will crash if they try to parse our fake data.
-  testthat::local_mocked_bindings(
-    read_data_entity = function(...) raw(0),
-    .package = "EDIutils"
-  )
-  testthat::local_mocked_bindings(
-    read_feather = function(...) data.frame(a = 1),
-    write_feather = function(...) TRUE,
-    .package = "arrow"
-  )
-  testthat::local_mocked_bindings(
-    read_csv = function(...) data.frame(a = 1),
-    write_csv = function(...) TRUE,
-    .package = "readr"
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "siteSR",
+      extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
+    )
   )
 
   # Expect the informational message confirming the download is proceeding
   expect_message(
-    result <- download_siteSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
+    result <- download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                             update = "ask"),
     regexp = "Proceeding with download."
   )
 
-  # Assert the function completed and returned paths
+  # Assert the function completed and returned all seven paths
   expect_type(result, "character")
+  expect_length(result, 7)
+  expect_true(all(file.exists(result)))
 })
 
+test_that("download_siteSR aborts when EDI does not return five unique data entities", {
+  tmp_dir <- withr::local_tempdir()
+
+  # Mock construct_id to skip check_edi_auth(), and return only four Landsat
+  # entities so the entity count validation fails
+  testthat::local_mocked_bindings(
+    construct_id = function(...) "edi.mock.1",
+    .package = "AquaMatchr"
+  )
+  testthat::local_mocked_bindings(
+    read_data_entity_names = function(...) {
+      mock_sr_entities(prefix = "siteSR", n_landsat = 4)
+    },
+    .package = "EDIutils"
+  )
+
+  expect_error(
+    download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                   update = "never"),
+    regexp = "Expected 5 unique siteSR data entities"
+  )
+})
 
 test_that("download_lakeSR aborts when user declines to overwrite files", {
   # Create temporary directory
@@ -178,7 +231,7 @@ test_that("download_lakeSR aborts when user declines to overwrite files", {
   on.exit(unlink(tmp_dir, recursive = TRUE))
 
   # Create a dummy file that matches a standard output name to trigger the prompt
-  dummy_file <- file.path(tmp_dir, "lakeSR_Landsat4_DSWE1_2025-06-04.feather")
+  dummy_file <- file.path(tmp_dir, "lakeSR_Landsat4_DSWE1.feather")
   file.create(dummy_file)
 
   # Mock ask_user to simulate the user typing "no". Mock construct_id to
@@ -187,12 +240,14 @@ test_that("download_lakeSR aborts when user declines to overwrite files", {
   testthat::with_mocked_bindings(
     {
       expect_error(
-        download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
+        download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE,
+                        update = "ask"),
         regexp = "Cancelled by user."
       )
     },
     ask_user = function(...) "no",
-    construct_id = function(...) "edi.mock.2"
+    construct_id = function(...) "edi.mock.2",
+    .package = "AquaMatchr"
   )
 })
 
@@ -203,56 +258,48 @@ test_that("download_lakeSR proceeds when user agrees to overwrite files", {
   on.exit(unlink(tmp_dir, recursive = TRUE))
 
   # Create a dummy file that matches a standard output name
-  dummy_file <- file.path(tmp_dir, "lakeSR_Landsat4_DSWE1_2025-06-04.feather")
+  dummy_file <- file.path(tmp_dir, "lakeSR_Landsat4_DSWE1.feather")
   file.create(dummy_file)
 
-  # Mock internal functions
-  testthat::local_mocked_bindings(
-    ask_user = function(...) "yes",
-    construct_id = function(...) "edi.mock.2"
-  )
-
-  # Mock external EDIutils functions using lakeSR specific names
-  testthat::local_mocked_bindings(
-    read_data_entity_names = function(...) {
-      data.frame(
-        entityName = c(
-          "lakeSR data from Landsat 4, DSWE filter for confident water (DSWE = 1)",
-          "lakeSR sites list",
-          "lakeSR handoff coefficients"
-        ),
-        entityId = c("mock_1", "mock_2", "mock_3"),
-        stringsAsFactors = FALSE
-      )
-    },
-    read_data_package_citation = function(...) "Mock lakeSR Citation",
-    .package = "EDIutils"
-  )
-
-  # Mock file parsers/writers to prevent crashes from fake raw bytes
-  testthat::local_mocked_bindings(
-    read_data_entity = function(...) raw(0),
-    .package = "EDIutils"
-  )
-  testthat::local_mocked_bindings(
-    read_feather = function(...) data.frame(a = 1),
-    write_feather = function(...) TRUE,
-    .package = "arrow"
-  )
-  testthat::local_mocked_bindings(
-    read_csv = function(...) data.frame(a = 1),
-    write_csv = function(...) TRUE,
-    .package = "readr"
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "lakeSR",
+      extra_entities = c("lakeSR sites list", "lakeSR handoff coefficients")
+    )
   )
 
   # Expect the informational message confirming the download is proceeding
   expect_message(
-    result <- download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE, ask = TRUE),
+    result <- download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE,
+                             update = "ask"),
     regexp = "Proceeding with download."
   )
 
-  # Assert the function completed and returned paths
+  # Assert the function completed and returned all seven paths
   expect_type(result, "character")
+  expect_length(result, 7)
+  expect_true(all(file.exists(result)))
+})
+
+test_that("download_lakeSR aborts when EDI does not return five unique data entities", {
+  tmp_dir <- withr::local_tempdir()
+
+  testthat::local_mocked_bindings(
+    construct_id = function(...) "edi.mock.2",
+    .package = "AquaMatchr"
+  )
+  testthat::local_mocked_bindings(
+    read_data_entity_names = function(...) {
+      mock_sr_entities(prefix = "lakeSR", n_landsat = 4)
+    },
+    .package = "EDIutils"
+  )
+
+  expect_error(
+    download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE,
+                   update = "never"),
+    regexp = "Expected 5 unique lakeSR data entities"
+  )
 })
 
 test_that("download_sceneMetadata rejects an invalid product", {
@@ -272,11 +319,13 @@ test_that("download_sceneMetadata aborts when user declines to overwrite files",
   # function reaches the overwrite prompt.
   testthat::local_mocked_bindings(
     ask_user = function(...) "no",
-    construct_id = function(...) "edi.mock.1"
+    construct_id = function(...) "edi.mock.1",
+    .package = "AquaMatchr"
   )
 
   expect_error(
-    download_sceneMetadata(download_folder = tmp, product = "siteSR", ask = TRUE),
+    download_sceneMetadata(download_folder = tmp, product = "siteSR",
+                           update = "ask"),
     regexp = "Cancelled by user."
   )
 })
@@ -284,14 +333,16 @@ test_that("download_sceneMetadata aborts when user declines to overwrite files",
 test_that("download_sceneMetadata downloads and writes both scene metadata files (mocked)", {
   # Mock internal auth helper so it passes
   testthat::local_mocked_bindings(
-    check_edi_auth = function() TRUE
+    check_edi_auth = function() TRUE,
+    .package = "AquaMatchr"
   )
 
   tmp <- withr::local_tempdir()
 
   # Mock the EDIutils functions to intercept the web requests. Each entity
   # gets distinct fake content so we can confirm the right bytes land in the
-  # right output file.
+  # right output file. The checksum endpoint is needed by the sidecar
+  # machinery.
   testthat::local_mocked_bindings(
     list_data_package_revisions = function(...) "1",
     read_data_package_citation = function(...) "Mock Citation",
@@ -305,6 +356,9 @@ test_that("download_sceneMetadata downloads and writes both scene metadata files
         stringsAsFactors = FALSE
       )
     },
+    read_data_entity_checksum = function(...) {
+      "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+    },
     read_data_entity = function(packageId, entityId, ...) {
       if (entityId == "mock_457") {
         charToRaw("sat_id,IMAGE_QUALITY\n1_2_LT05_003048_19841111,9\n")
@@ -316,7 +370,8 @@ test_that("download_sceneMetadata downloads and writes both scene metadata files
   )
 
   # Run the function
-  result <- download_sceneMetadata(download_folder = tmp, product = "siteSR", ask = FALSE)
+  result <- download_sceneMetadata(download_folder = tmp, product = "siteSR",
+                                  update = "always")
 
   # Verify both files were written with the expected names and content
   expect_type(result, "character")
@@ -325,6 +380,9 @@ test_that("download_sceneMetadata downloads and writes both scene metadata files
   expect_true(all(
     c("sceneMetadata_Landsat457.csv", "sceneMetadata_Landsat89.csv") %in% names(result)
   ))
+
+  # Verify sidecars were written next to each file
+  expect_true(all(file.exists(paste0(result, ".edi.rds"))))
 
   ls457 <- readr::read_csv(result[["sceneMetadata_Landsat457.csv"]], show_col_types = FALSE)
   ls89 <- readr::read_csv(result[["sceneMetadata_Landsat89.csv"]], show_col_types = FALSE)

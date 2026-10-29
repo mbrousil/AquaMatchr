@@ -4,7 +4,7 @@
 \alias{download_riverSR}
 \title{Download riverSR dataset from Zenodo}
 \usage{
-download_riverSR(download_folder, timeout_length = 6000, force = FALSE)
+download_riverSR(download_folder, timeout_length = 6000, update = "ask")
 }
 \arguments{
 \item{download_folder}{A string containing the path to the folder where the datasets
@@ -13,16 +13,38 @@ should be saved.}
 \item{timeout_length}{The number of seconds to allow for the download. Defaults
 to 6000 based on tests with the riverSR dataset, but can be adjusted as needed.}
 
-\item{force}{Logical. If FALSE (default), the function skips downloading files that
-already exist in \code{download_folder}. If TRUE, existing files will be overwritten.}
+\item{update}{Character. How should updates to existing files be handled? Options are:
+\itemize{
+\item "ask": prompt before replacing an existing local file
+\item "always": download and replace it
+\item "never": reuse the local file whenever it exists
+\item "if_changed": reuse a local file if the checksum reported by Zenodo is
+unchanged and the local copy has not been modified; otherwise download it
+}
+
+Note that with "ask", a single prompt covers all riverSR files. Files that
+do not exist locally are downloaded in every mode.}
 }
 \value{
-A character string containing the local file paths to the downloaded RiverSR datasets. Returned invisibly.
+A named character vector containing the local file paths to the
+downloaded RiverSR datasets. Returned invisibly.
 }
 \description{
 A function to facilitate downloading of the \href{https://doi.org/10.5281/zenodo.4304567}{riverSR} data product from Zenodo.
 Downloaded files are the surface reflectance database (\code{riverSR_usa_v1.1.feather}) and shapefile of river centerlines (\code{nhdplusv2_modified_v1.0.shp}).
 It is mostly a wrapper around \code{zen4R::download_zenodo()}.
+}
+\details{
+When a file is downloaded, a small metadata file (a "sidecar") is created
+next to it, named \verb{<file>.zenodo.rds}. It records the checksum reported by
+Zenodo and a separate checksum of the locally saved file. The "if_changed"
+option re-downloads riverSR files if the corresponding sidecar is missing,
+the checksum reported by Zenodo differs, or the local copy has been
+modified. Because the Zenodo record is versioned, its contents do not
+change over time; "if_changed" mainly detects modified or corrupted local
+copies. Note that in "if_changed" mode, local file checksums are recomputed
+on every call, which can take a minute or more for the multi-gigabyte
+riverSR files.
 }
 \note{
 The downloaded files will be large (>13 GB in size), so users will need to

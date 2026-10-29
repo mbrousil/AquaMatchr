@@ -144,11 +144,12 @@ construct_id <- function(identifier, version){
 #' Generate checksum for local file
 #'
 #' @param file_path The path to the local file
+#' @param algo The checksum algorithm to use. Defaults to "sha1".
 #'
-#' @returns A single SHA-1 checksum string for the file at `file_path`
+#' @returns A single checksum string for the file at `file_path`
 #' @noRd
-generate_local_checksum <- function(file_path){
-  digest::digest(object = file_path, algo = "sha1", file = TRUE)
+generate_local_checksum <- function(file_path, algo = "sha1"){
+  digest::digest(object = file_path, algo = algo, file = TRUE)
 }
 
 #' Return the ID of a single EDI entity by name
@@ -290,17 +291,13 @@ download_w_sidecar <- function(download_filepath, update,
     )
     remote_checksum <- tolower(trimws(remote_checksum))
 
-    metadata <- if (file.exists(sidecar)) {
-      tryCatch(readRDS(sidecar), error = function(e) NULL)
-    } else {
-      NULL
-    }
-
-    cache_is_current <- is.list(metadata) &&
-      identical(metadata$entity_key, entity_key) &&
-      identical(tolower(metadata$remote_checksum), remote_checksum) &&
-      identical(metadata$local_checksum,
-                generate_local_checksum(download_filepath))
+    # Reuse the file only when the sidecar confirms that the remote entity
+    # and the local copy are both unchanged
+    cache_is_current <- sidecar_is_current(
+      download_filepath = download_filepath,
+      entity_key = entity_key,
+      remote_checksum = remote_checksum
+    )
 
     if (cache_is_current) {
       return(invisible(list(path = download_filepath, downloaded = FALSE)))
@@ -656,4 +653,54 @@ infer_arrow_format <- function(path, allowed = c("csv", "feather", "parquet")) {
   }
 
   format
+}
+
+#' Check whether a checksum sidecar indicates an unchanged local file
+#'
+#' @param download_filepath Path to the local file
+#' @param entity_key Stable label identifying the remote entity
+#' @param remote_checksum Current remote checksum of the entity
+#' @param sidecar_suffix Suffix appended to `download_filepath` to locate the
+#'   sidecar file
+#' @param algo Checksum algorithm used for the local file. Must match the
+#'   algorithm used when the sidecar was written.
+#'
+#' @return TRUE if the sidecar exists and records matching `entity_key` and
+#'   `remote_checksum` values plus an unmodified local file; FALSE otherwise.
+#' @noRd
+sidecar_is_current <- function(download_filepath, entity_key, remote_checksum,
+                               sidecar_suffix = ".edi.rds", algo = "sha1") {
+  sidecar <- paste0(download_filepath, sidecar_suffix)
+
+  metadata <- if (file.exists(sidecar)) {
+    tryCatch(readRDS(sidecar), error = function(e) NULL)
+  } else {
+    NULL
+  }
+
+  remote_matches <- identical(
+    tolower(metadata$remote_checksum),
+    tolower(trimws(remote_checksum))
+  )
+
+  is.list(metadata) &&
+    identical(metadata$entity_key, entity_key) &&
+    remote_matches &&
+    identical(metadata$local_checksum,
+              generate_local_checksum(download_filepath, algo = algo))
+}
+
+#' Fetch file names and checksums from a Zenodo record
+#'
+#' @param doi String. DOI of a published Zenodo record.
+#'
+#' @return A named character vector of lowercase MD5 checksums (hex strings)
+#'   with the record's file names as names.
+#' @noRd
+pull_zenodo_files <- function(doi) {
+  record <- zen4R::ZenodoManager$new()$getRecordByDOI(doi)
+  file_info <- record$listFiles(pretty = TRUE)
+
+  checksums <- tolower(sub("^md5:", "", file_info$checksum))
+  stats::setNames(checksums, file_info$filename)
 }

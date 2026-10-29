@@ -304,7 +304,7 @@ test_that("match_siteSR_to_WQP fails if input files do not exist", {
 test_that("match_siteSR_to_WQP() processes CSV WQP data correctly", {
 
   # Path to test data snippets
-  sitelist_path       <- testthat::test_path("testdata", "sitelist_2025-06-04_snippet.csv")
+  sitelist_path       <- testthat::test_path("testdata", "sitelist_snippet.csv")
   sitesr_parquet_path <- testthat::test_path("testdata", "siteSR_DSWE1_full_concatenation_snippet.parquet")
   wqp_feather_path    <- testthat::test_path("testdata", "chla_harmonized_snippet.feather")
 
@@ -695,7 +695,7 @@ test_that("apply_handoffs() warns users when sat_target is LS8", {
   input_path <- testthat::test_path("testdata", "chla_7day_siteSR_DSWE1_matchups_snippet.parquet")
 
   # Path to handoffs test file
-  handoff_csv <- testthat::test_path("testdata", "lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv")
+  handoff_csv <- testthat::test_path("testdata", "lakeSR_collated_handoffs.csv")
 
   # Temporary out file
   temp_out <- withr::local_tempfile(fileext = ".parquet")

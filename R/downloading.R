@@ -106,6 +106,18 @@ download_parameters <- function(parameters, version = "newest"){
 #' Downloaded files are the surface reflectance database (`riverSR_usa_v1.1.feather`) and shapefile of river centerlines (`nhdplusv2_modified_v1.0.shp`).
 #' It is mostly a wrapper around `zen4R::download_zenodo()`.
 #'
+#' @details
+#' When a file is downloaded, a small metadata file (a "sidecar") is created
+#' next to it, named `<file>.zenodo.rds`. It records the checksum reported by
+#' Zenodo and a separate checksum of the locally saved file. The "if_changed"
+#' option re-downloads riverSR files if the corresponding sidecar is missing,
+#' the checksum reported by Zenodo differs, or the local copy has been
+#' modified. Because the Zenodo record is versioned, its contents do not
+#' change over time; "if_changed" mainly detects modified or corrupted local
+#' copies. Note that in "if_changed" mode, local file checksums are recomputed
+#' on every call, which can take a minute or more for the multi-gigabyte
+#' riverSR files.
+#'
 #' @note
 #' The downloaded files will be large (>13 GB in size), so users will need to
 #' make sure that they have appropriate available storage. During testing,
@@ -115,28 +127,38 @@ download_parameters <- function(parameters, version = "newest"){
 #'   should be saved.
 #' @param timeout_length The number of seconds to allow for the download. Defaults
 #' to 6000 based on tests with the riverSR dataset, but can be adjusted as needed.
-#' @param force Logical. If FALSE (default), the function skips downloading files that
-#' already exist in `download_folder`. If TRUE, existing files will be overwritten.
+#' @param update Character. How should updates to existing files be handled? Options are:
+#' + "ask": prompt before replacing an existing local file
+#' + "always": download and replace it
+#' + "never": reuse the local file whenever it exists
+#' + "if_changed": reuse a local file if the checksum reported by Zenodo is
+#' unchanged and the local copy has not been modified; otherwise download it
+#'
+#' Note that with "ask", a single prompt covers all riverSR files. Files that
+#' do not exist locally are downloaded in every mode.
 #'
 #' @importFrom cli cli_alert_info cli_alert_success cli_alert_warning cli_abort
-#' @return A character string containing the local file paths to the downloaded RiverSR datasets. Returned invisibly.
+#' @return A named character vector containing the local file paths to the
+#' downloaded RiverSR datasets. Returned invisibly.
 #' @export
 #'
 #' @examples
 #' \dontrun{
 #' download_riverSR(download_folder = "~/Downloads/")
 #' }
-download_riverSR <- function(download_folder, timeout_length = 6000, force = FALSE) {
+download_riverSR <- function(download_folder, timeout_length = 6000,
+                             update = "ask") {
+
+  # Check update argument input
+  update <- check_update_arg(update)
 
   # Ensure destination directory exists before running file checks
   if (!dir.exists(download_folder)) {
     dir.create(download_folder, recursive = TRUE)
   }
 
-  # Warning to user
-  cli::cli_alert_info(
-    "The size of these files is large (>13GB) so the download will take some time."
-  )
+  # riverSR Zenodo DOI
+  riverSR_doi <- "10.5281/zenodo.4304567"
 
   # Define the specific files to download, including all shapefile sidecars
   target_files <- c(
@@ -151,73 +173,136 @@ download_riverSR <- function(download_folder, timeout_length = 6000, force = FAL
   out_files <- file.path(download_folder, target_files)
   names(out_files) <- target_files
 
-  # If force == TRUE, ignore whether there are any existing files of the same name
-  if (isTRUE(force)) {
-    cli::cli_alert_info("Force override enabled. Downloading files...")
-    pre_existing_files <- character(0)
+  file_is_present <- file.exists(out_files)
+
+  if (update == "ask" && any(file_is_present)) {
+    user_decision <- ask_user(algal_mask = FALSE,
+                              which_sr = "generic",
+                              file_message = "riverSR")
+
+    # Act on input
+    if (user_decision == "yes") {
+      cli::cli_alert_info("Proceeding with download.")
+      # Treat as an always download
+      update <- "always"
+    } else {
+      cli::cli_abort("Cancelled by user.")
+    }
+  }
+
+  zenodo_checksums <- NULL
+
+  # Determine which files need to be (re)downloaded
+  if (update == "always") {
+    files_to_download <- target_files
+  } else if (update == "never") {
+    files_to_download <- target_files[!file_is_present]
   } else {
-    # Otherwise, take a snapshot of any pre-existing files
-    pre_existing_files <- out_files[file.exists(out_files)]
+    # For "if_changed", reuse an existing file only when its sidecar confirms
+    # that the Zenodo version and the local copy are both unchanged
+    zenodo_checksums <- pull_zenodo_files(doi = riverSR_doi)
 
-    # Early exit if everything is already there
-    if (length(pre_existing_files) == length(target_files)) {
-      cli::cli_alert_success("All files already exist. Use `force = TRUE` to overwrite. Skipping download.")
-      return(invisible(out_files))
-    }
+    files_to_download <- target_files[vapply(
+      X = target_files,
+      FUN = function(file_name) {
+        out_path <- unname(out_files[file_name])
+        remote_checksum <- unname(zenodo_checksums[file_name])
+
+        !file.exists(out_path) || is.na(remote_checksum) ||
+          !sidecar_is_current(
+            download_filepath = out_path,
+            entity_key = file_name,
+            remote_checksum = remote_checksum,
+            sidecar_suffix = ".zenodo.rds",
+            algo = "md5"
+          )
+      },
+      FUN.VALUE = logical(1)
+    )]
   }
 
-  # Helper function to clean up files created during a failed run
-  cleanup_partial_files <- function() {
-    current_files <- out_files[file.exists(out_files)]
-    newly_created_files <- setdiff(current_files, pre_existing_files)
-    if (length(newly_created_files) > 0) {
-      cli::cli_alert_warning(
-        "Download interrupted. Removing {length(newly_created_files)} incomplete/corrupted file{?s}..."
-      )
-      unlink(newly_created_files)
-    }
-  }
+  will_download <- length(files_to_download) > 0
 
-  # Attempt download, watching for indications of a timeout issue
-  tryCatch({
-    zen4R::download_zenodo(
-      path = download_folder,
-      doi = "10.5281/zenodo.4304567",
-      files = target_files,
-      timeout = timeout_length
+  # Only warn about the scale of downloads when at least one will happen
+  if (will_download) {
+    cli::cli_alert_info(
+      "One or more files need to be downloaded. The riverSR files total more than 13GB so the download will take some time."
     )
-  }, warning = function(w) {
-    # Catch md5sum mismatch, length mismatch, or explicit timeout warnings
-    if (grepl("md5sum|downloaded length|timeout|cannot open URL", w$message, ignore.case = TRUE)) {
+  }
+
+  # Helper to clean up files written during a failed run. Files that are being
+  # kept are never in the download set, so the cleanup cannot remove them.
+  cleanup_partial_files <- function() {
+    download_paths <- unname(out_files[files_to_download])
+    incomplete_files <- download_paths[file.exists(download_paths)]
+
+    if (length(incomplete_files) > 0) {
+      cli::cli_alert_warning(
+        "Download interrupted. Removing {length(incomplete_files)} incomplete/corrupted file{?s}..."
+      )
+      unlink(incomplete_files)
+    }
+  }
+
+  if (will_download) {
+    # Checksums reported by Zenodo, recorded in the sidecars of new downloads
+    if (is.null(zenodo_checksums)) {
+      zenodo_checksums <- pull_zenodo_files(doi = riverSR_doi)
+    }
+
+    # Attempt download, watching for indications of a timeout issue
+    tryCatch({
+      zen4R::download_zenodo(
+        path = download_folder,
+        doi = riverSR_doi,
+        files = files_to_download,
+        timeout = timeout_length
+      )
+    }, warning = function(w) {
+      # Catch md5sum mismatch, length mismatch, or explicit timeout warnings
+      if (grepl("md5sum|downloaded length|timeout|cannot open URL", w$message, ignore.case = TRUE)) {
+        cleanup_partial_files()
+        cli::cli_abort(c(
+          "x" = "The download failed, timed out, or resulted in corrupted files.",
+          "i" = "Original system warning: {w$message}"
+        ))
+      } else {
+        warning(w)
+      }
+    }, error = function(e) {
+      # Catch any hard errors thrown by zen4R or the internet connection
       cleanup_partial_files()
       cli::cli_abort(c(
-        "x" = "The download failed, timed out, or resulted in corrupted files.",
-        "i" = "Original system warning: {w$message}"
+        "x" = "A fatal error occurred during the download.",
+        "i" = "Original system error: {e$message}"
       ))
-    } else {
-      warning(w)
-    }
-  }, error = function(e) {
-    # Catch any hard errors thrown by zen4R or the internet connection
-    cleanup_partial_files()
-    cli::cli_abort(c(
-      "x" = "A fatal error occurred during the download.",
-      "i" = "Original system error: {e$message}"
-    ))
-  })
+    })
 
-  if (all(file.exists(out_files))) {
-    cli::cli_alert_success("Download complete.")
-    cli::cli_alert_info(
-      paste0(
-        "RiverSR recommended citation: John Gardner, Xiao Yang, Simon Topp, Matthew Ross,",
-        " Tamlin Pavelsky, & Elizabeth Altenau. (2020). River Surface Reflectance",
-        " Database (RiverSR) (v1.1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.4304567.",
-        " Accessed {Sys.Date()}."
+    # Record a checksum sidecar next to each newly downloaded file
+    for (file_name in files_to_download) {
+      remote_checksum <- unname(zenodo_checksums[file_name])
+      if (is.na(remote_checksum)) {
+        cli::cli_abort(
+          "The Zenodo record does not report a checksum for {.val {file_name}}.",
+          call = NULL
+        )
+      }
+
+      out_path <- unname(out_files[file_name])
+      saveRDS(
+        list(
+          entity_key = file_name,
+          doi = riverSR_doi,
+          remote_checksum = remote_checksum,
+          local_checksum = generate_local_checksum(out_path, algo = "md5"),
+          checked_at = Sys.time()
+        ),
+        file = paste0(out_path, ".zenodo.rds")
       )
-    )
-    return(invisible(out_files))
-  } else {
+    }
+  }
+
+  if (!all(file.exists(out_files))) {
     # Identify which files failed to download for an informative error message
     missing_files <- target_files[!file.exists(out_files)]
     cli::cli_abort(
@@ -225,6 +310,27 @@ download_riverSR <- function(download_folder, timeout_length = 6000, force = FAL
              paste(missing_files, collapse = ", "))
     )
   }
+
+  # Confirm what happened for each file
+  for (file_name in target_files) {
+    if (file_name %in% files_to_download) {
+      cli::cli_alert_success("Downloaded {.val {file_name}}.")
+    } else {
+      cli::cli_alert_info("Using current local file {.file {file_name}}.")
+    }
+  }
+
+  # Suggest citation
+  cli::cli_alert_info(
+    paste0(
+      "RiverSR recommended citation: John Gardner, Xiao Yang, Simon Topp, Matthew Ross,",
+      " Tamlin Pavelsky, & Elizabeth Altenau. (2020). River Surface Reflectance",
+      " Database (RiverSR) (v1.1.0) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.4304567.",
+      " Accessed {Sys.Date()}."
+    )
+  )
+
+  invisible(out_files)
 }
 
 #' Download siteSR dataset from EDI
