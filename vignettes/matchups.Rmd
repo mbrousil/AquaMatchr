@@ -80,7 +80,7 @@ The `match_siteSR_to_WQP()` function requires:
 match_siteSR_to_WQP(
   wqp_path = "data/chla_harmonized.feather",
   siteSR_path = "data/siteSR_DSWE1_full_concatenation.feather",
-  site_list_path = "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info_2025-06-04.csv",
+  site_list_path = "data/siteSR_collated_WQP_NWIS_sites_with_NHD_info.csv",
   output_file = "data/matchup_output/chla_siteSR_DSWE1_matchups.parquet",
   time_window = "5 days"
 )
@@ -119,10 +119,10 @@ There are several options to be aware of for intermission handoffs in this file,
 ```{r apply-handsoff, eval=FALSE}
 apply_handoffs(
   input_path = "data/matchup_output/chla_siteSR_DSWE1_matchups.parquet",
-  handoff_path = "data/lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv",
+  handoff_path = "data/lakeSR_collated_handoffs.csv",
   correction_method = "Gardner_poly",
   sat_target = "LS7",
-  algal_mask = "FALSE",
+  algal_mask = FALSE,
   output_file = "data/matchup_output/chla_siteSR_DSWE1_matchups_gardner.parquet"
 )
 ```

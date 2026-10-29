@@ -105,15 +105,17 @@ sdd_v1 <- download_parameters(
 
 [LakeSR](https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2114.1) and [siteSR](https://portal.edirepository.org/nis/mapbrowse?packageid=edi.2254.1) are housed on EDI, similarly to the harmonized *in-situ* sampling datasets. A separate function is provided to download each one: `AquaMatchr::download_siteSR()` and `AquaMatchr::download_lakeSR()`. Both functions download multiple large files to a path provided by the user. The files are not read into the R environment during the download in order to save memory. Both have `algal_mask` arguments: If `TRUE`, the algal mask version of the dataset (DSWE1a) is downloaded, otherwise DSWE1 is used (i.e., `FALSE`).
 
-For example, the code below would download the DSWE1 version of siteSR and would also ask the user to confirm that any existing files with identical names in the download location should be overwritten (i.e., `ask` = `TRUE`).
+For example, the code below would download the DSWE1 version of siteSR and, because `update` = `"ask"`, would ask the user to confirm that any existing files with identical names in the download location should be overwritten.
 
 ```{r sitesr-download, eval = FALSE}
 download_siteSR(
   download_folder = "path/to/folder/of/choice",
   algal_mask = FALSE,
-  ask = TRUE
+  update = "ask"
 )
 ```
+
+The `update` argument controls how existing local files are handled and is available in each of the package's file-downloading functions: `"ask"` (the default) prompts before replacing existing files, `"always"` re-downloads them, `"never"` reuses them whenever they exist, and `"if_changed"` reuses them only when a checksum sidecar written next to each downloaded file (`<file>.edi.rds`) confirms that neither the remote file nor the local copy has changed.
 
 The `download_siteSR()` function downloads the following files from EDI:
 
@@ -132,7 +134,7 @@ The equivalent `download_lakeSR()` call would download lakeSR files:
 download_lakeSR(
   download_folder = "path/to/folder/of/choice",
   algal_mask = FALSE,
-  ask = TRUE
+  update = "ask"
 )
 ```
 
@@ -155,7 +157,7 @@ Scene-level metadata is also available as part of siteSR and lakeSR on EDI. The 
 download_sceneMetadata(
   download_folder = "path/to/folder/of/choice",
   product = "siteSR",
-  ask = TRUE
+  update = "ask"
 )
 ```
 
@@ -171,7 +173,7 @@ The schemas of the two files are similar but not identical: The Landsat 4/5/7 ve
 
 The [riverSR dataset](https://doi.org/10.5281/zenodo.4304567) is stored on Zenodo, and due to its large size we download it without bringing it into the R environment. This takes place through the `AquaMatchr::download_riverSR()` function, which requires a download path to be provided by the user. The `timeout_length` for `download_riverSR()` can also be specified but by default is 6,000 seconds, which typically worked in testing for this function (though it may vary throughout time). RiverSR will be downloaded and saved as `"riverSR_usa_v1.1.feather"` in the folder specified in the `download_folder` argument.
 
-Like the other download functions, `download_riverSR()` accepts an `update` argument that controls how existing local files are handled: "ask" (the default) prompts before replacing them, "always" re-downloads them, "never" reuses them whenever they exist, and "if_changed" reuses them only when a checksum sidecar written next to each downloaded file (`<file>.zenodo.rds`) confirms that the checksum reported by Zenodo is unchanged and the local copy has not been modified. Because the riverSR Zenodo record is versioned, its contents do not change over time, so "if_changed" mainly protects against modified or corrupted local copies. Note that "if_changed" recomputes local file checksums on every call, which can take a minute or more for the multi-gigabyte riverSR files.
+Like the other download functions, `download_riverSR()` accepts an `update` argument (described above) that defaults to `"ask"`. Its checksum sidecars are named `<file>.zenodo.rds` and record the checksum reported by Zenodo. Because the riverSR Zenodo record is versioned, its contents do not change over time, so `"if_changed"` mainly protects against modified or corrupted local copies. Note that `"if_changed"` recomputes local file checksums on every call, which can take a minute or more for the multi-gigabyte riverSR files.
 
 ```{r riversr-download, eval = FALSE}
 download_riverSR(download_folder = "path/to/folder/of/choice", update = "if_changed")

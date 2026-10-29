@@ -50,6 +50,29 @@ remotes::install_github(repo = "AquaSat/AquaMatchr", build_vignettes = TRUE)
 
 ---
 
+## Logging in to EDI (required before downloading)
+
+Most of the data this package downloads comes from the Environmental Data Initiative (EDI). As of July 2026, EDI requires all data access to be authenticated, so the download functions will stop with a message reminding you to log in if you haven't.
+
+The easiest option is to run this once at the start of each R session:
+
+```r
+EDIutils::login()
+```
+
+If you'd rather not log in every session, you can store your EDI API key permanently:
+
+1. Create a free account and get an API key from the [EDI IAM Portal](https://edirepository.org/resources/iam) (sign in with Google, Microsoft, GitHub, or ORCiD)
+2. Run `usethis::edit_r_environ()` to open your `.Renviron` file
+3. Add a line like `EDI_API_KEY='your-key-here'` to the file
+4. Restart R
+
+For more detail on EDI authentication and where to get an API key, see the [EDIutils documentation](https://docs.ropensci.org/EDIutils/).
+
+<br>
+
+---
+
 ## Quick example
 
 As a quick example, you can download the AquaMatch colored dissolved organic matter dataset like this:

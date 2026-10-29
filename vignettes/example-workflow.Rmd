@@ -76,8 +76,8 @@ siteSR_paths <- download_siteSR(
   download_folder = temp_dir,
   # DSWE1
   algal_mask = FALSE,
-  # Don't ask about overwriting existing files
-  ask = FALSE
+  # Re-download files even if they already exist locally
+  update = "always"
 )
 ```
 
@@ -120,7 +120,7 @@ We can also QA using scene-level metadata that isn't carried through into siteSR
 sceneMetadata_paths <- download_sceneMetadata(
   download_folder = temp_dir,
   product = "siteSR",
-  ask = FALSE
+  update = "always"
 )
 
 # Combine the two scene metadata files, keeping just the columns we need
