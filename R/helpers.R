@@ -185,6 +185,7 @@ pull_entity_id <- function(package_id, entity_name) {
 #' @return The validated update option, lowercased and whitespace-trimmed.
 #' @noRd
 check_update_arg <- function(update) {
+  # Confirm that input conforms to expectations
   if (!is.character(update) || length(update) != 1L || is.na(update)) {
     cli::cli_abort(
       "{.arg update} must be one of 'ask', 'always', 'never', or 'if_changed'.",
@@ -192,8 +193,10 @@ check_update_arg <- function(update) {
     )
   }
 
+  # Normalize input
   update <- tolower(trimws(update))
 
+  # Final check after normalization
   if (!update %in% c("ask", "always", "never", "if_changed")) {
     cli::cli_abort(
       "{.arg update} must be one of 'ask', 'always', 'never', or 'if_changed'.",

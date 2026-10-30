@@ -375,3 +375,43 @@ test_that("download_riverSR handles hard errors and cleans up partial files", {
   # Assert partial file was removed on hard error
   expect_false(file.exists(file.path(tmp_dir, "nhdplusv2_modified_v1.0.shp")))
 })
+
+test_that("download_riverSR aborts informatively if Zenodo does not report a checksum", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  # Zenodo's listing is missing the checksum for one of the target files
+  incomplete_listing <- fake_zenodo_checksums[
+    names(fake_zenodo_checksums) != "nhdplusv2_modified_v1.0.dbf"
+  ]
+
+  mock_success <- function(path, ..., files) {
+    file.create(file.path(path, files))
+  }
+
+  with_riverSR_mocks(
+    {
+      expect_error(
+        download_riverSR(download_folder = tmp_dir),
+        regexp = "did not report a checksum"
+      )
+    },
+    download_mock = mock_success,
+    listing_mock = function(doi) incomplete_listing
+  )
+
+  # The download itself succeeded, so all data files remain on disk...
+  expect_true(all(file.exists(file.path(tmp_dir, target_files))))
+
+  # ...but sidecars were written only for the files processed before the abort
+  expect_true(file.exists(file.path(
+    tmp_dir, "nhdplusv2_modified_v1.0.shx.zenodo.rds"
+  )))
+  expect_false(file.exists(file.path(
+    tmp_dir, "nhdplusv2_modified_v1.0.dbf.zenodo.rds"
+  )))
+  expect_false(file.exists(file.path(
+    tmp_dir, "nhdplusv2_modified_v1.0.prj.zenodo.rds"
+  )))
+})

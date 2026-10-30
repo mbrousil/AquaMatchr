@@ -226,7 +226,7 @@ download_riverSR <- function(download_folder, timeout_length = 6000,
   # Only warn about the scale of downloads when at least one will happen
   if (will_download) {
     cli::cli_alert_info(
-      "One or more files need to be downloaded. The riverSR files total more than 13GB so the download will take some time."
+      "One or more files need to be downloaded. The riverSR files total more than 13GB so the download may take some time."
     )
   }
 
@@ -282,10 +282,11 @@ download_riverSR <- function(download_folder, timeout_length = 6000,
     for (file_name in files_to_download) {
       remote_checksum <- unname(zenodo_checksums[file_name])
       if (is.na(remote_checksum)) {
-        cli::cli_abort(
-          "The Zenodo record does not report a checksum for {.val {file_name}}.",
-          call = NULL
-        )
+        cli::cli_abort(c(
+          "x" = "{.val {file_name}} downloaded successfully, but the Zenodo record did not report a checksum for it.",
+          "i" = "The downloaded file is complete and safe to use. However, it may be re-downloaded on a future run because we could not save a checksum to verify it against.",
+          "i" = "This usually means the Zenodo record has changed. Please check the record at {.url https://doi.org/10.5281/zenodo.4304567} and report this at {.url https://github.com/AquaSat/AquaMatchr/issues}."
+        ), call = NULL)
       }
 
       out_path <- unname(out_files[file_name])
