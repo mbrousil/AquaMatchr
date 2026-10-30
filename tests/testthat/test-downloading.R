@@ -86,12 +86,19 @@ test_that("download_parameters('cdom') successfully downloads and parses 35MB da
 })
 
 # Build a mock EDI entity table for the SR download tests: `n_landsat` Landsat
-# data entities (DSWE = 1) plus any auxiliary entities such as the sites list
+# data entities (DSWE = 1 or DSWE = 1a) plus any auxiliary entities such as
+# the sites list
 mock_sr_entities <- function(prefix, extra_entities = character(),
-                             n_landsat = 5) {
+                             n_landsat = 5, dswe = c("1", "1a")) {
+  dswe <- match.arg(dswe)
+  dswe_suffix <- if (dswe == "1") {
+    "DSWE filter for confident water (DSWE = 1)"
+  } else {
+    "DSWE filter for confident water and algal mask (DSWE = 1a)"
+  }
   landsat_names <- paste0(
     prefix, " data from Landsat ", c(4, 5, 7, 8, 9)[seq_len(n_landsat)],
-    ", DSWE filter for confident water (DSWE = 1)"
+    ", ", dswe_suffix
   )
   entity_names <- c(landsat_names, extra_entities)
 
@@ -201,6 +208,44 @@ test_that("download_siteSR proceeds when user agrees to overwrite files", {
   expect_true(all(file.exists(result)))
 })
 
+test_that("download_siteSR downloads algal mask (DSWE1a) files when requested", {
+  tmp_dir <- withr::local_tempdir()
+
+  # Pre-create one DSWE1a file to trigger (and accept) the overwrite prompt
+  file.create(file.path(tmp_dir, "siteSR_Landsat4_DSWE1a.feather"))
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "siteSR",
+      extra_entities = c("siteSR sites list", "lakeSR handoff coefficients"),
+      dswe = "1a"
+    )
+  )
+
+  # The prompt fires because a DSWE1a file already exists; ask_user is mocked
+  # to "yes" in local_sr_download_mocks()
+  expect_message(
+    result <- download_siteSR(download_folder = tmp_dir, algal_mask = TRUE,
+                             update = "ask"),
+    regexp = "Proceeding with download."
+  )
+
+  # All seven paths returned, under the DSWE1a filenames
+  expect_type(result, "character")
+  expect_length(result, 7)
+  expect_true(all(file.exists(result)))
+  expect_true(all(c(
+    "siteSR_Landsat4_DSWE1a.feather",
+    "siteSR_Landsat9_DSWE1a.feather"
+  ) %in% names(result)))
+
+  # Sidecars were written for the DSWE1a data files
+  expect_true(all(file.exists(paste0(
+    result[c("siteSR_Landsat4_DSWE1a.feather", "siteSR_Landsat9_DSWE1a.feather")],
+    ".edi.rds"
+  ))))
+})
+
 test_that("download_siteSR aborts when EDI does not return five unique data entities", {
   tmp_dir <- withr::local_tempdir()
 
@@ -300,6 +345,42 @@ test_that("download_lakeSR aborts when EDI does not return five unique data enti
                    update = "never"),
     regexp = "Expected 5 unique lakeSR data entities"
   )
+})
+
+test_that("download_lakeSR downloads algal mask (DSWE1a) files when requested", {
+  tmp_dir <- withr::local_tempdir()
+
+  # Pre-create one DSWE1a file to trigger (and accept) the overwrite prompt
+  file.create(file.path(tmp_dir, "lakeSR_Landsat4_DSWE1a.feather"))
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "lakeSR",
+      extra_entities = c("lakeSR sites list", "lakeSR handoff coefficients"),
+      dswe = "1a"
+    )
+  )
+
+  expect_message(
+    result <- download_lakeSR(download_folder = tmp_dir, algal_mask = TRUE,
+                             update = "ask"),
+    regexp = "Proceeding with download."
+  )
+
+  # All seven paths returned, under the DSWE1a filenames
+  expect_type(result, "character")
+  expect_length(result, 7)
+  expect_true(all(file.exists(result)))
+  expect_true(all(c(
+    "lakeSR_Landsat4_DSWE1a.feather",
+    "lakeSR_Landsat9_DSWE1a.feather"
+  ) %in% names(result)))
+
+  # Sidecars were written for the DSWE1a data files
+  expect_true(all(file.exists(paste0(
+    result[c("lakeSR_Landsat4_DSWE1a.feather", "lakeSR_Landsat9_DSWE1a.feather")],
+    ".edi.rds"
+  ))))
 })
 
 test_that("download_sceneMetadata rejects an invalid product", {
