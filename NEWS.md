@@ -2,7 +2,7 @@
 
 ## Breaking changes
 
-These are changes that may cause code written for earlier versions of the package to stop working. For each one, we've shown exactly what to change in your code.
+These are recent changes that may cause code written for earlier versions of the package to stop working. For each one, we've shown what to change in your code below.
 
 ### You now need to log in to EDI before downloading
 
@@ -40,7 +40,7 @@ If your code uses the old names, you'll see an "unused argument" error. The fixe
 
 ### The `ask` and `force` arguments have been replaced by `update`
 
-The download functions used to ask a yes/no question about overwriting files (`ask = TRUE/FALSE`, or `force = TRUE/FALSE` in `download_riverSR()`). They now use a single `update` argument with four options: `"ask"` (the default — prompts you before replacing files), `"always"` (re-downloads every time), `"never"` (keeps existing files), and `"if_changed"` (re-downloads only files that have changed).
+The SR download functions used to ask a yes/no question about overwriting files (`ask = TRUE/FALSE`, or `force = TRUE/FALSE` in `download_riverSR()`). They now use a single `update` argument with four options: `"ask"` (the default — prompts you before replacing files), `"always"` (re-downloads every time), `"never"` (keeps existing files), and `"if_changed"` (re-downloads only files that have changed).
 
 * `ask = TRUE` can simply be deleted, since asking is still the default behavior. (Or write `update = "ask"` if you prefer to be explicit.)
 * `ask = FALSE` becomes `update = "always"`.
@@ -68,7 +68,7 @@ The download functions used to ask a yes/no question about overwriting files (`a
 
 ### Downloaded files no longer have dates in their names
 
-Files used to be saved with dates in their names, like `lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv`. They are now saved without dates, like `lakeSR_collated_handoffs.csv`. Two consequences:
+Files used to be saved with dates in their names to match information on EDI, like `lakeSR_collated_handoffs_GEEv2025-02-12_QAv2025-06-04.csv`. They are now saved without dates, like `lakeSR_collated_handoffs.csv`. Two consequences:
 
 * If your code points at a file by its old dated name (for example as `site_list_path` or `handoff_path`), update it to the new name.
 * If you already have dated files downloaded, the download functions won't recognize them and will download fresh copies under the new names. You can delete the old dated files to save disk space.
@@ -81,7 +81,7 @@ Files used to be saved with dates in their names, like `lakeSR_collated_handoffs
 
 ## Minor improvements
 
-* All download functions now return the paths to your local files, so you can capture them and pass them to the next step instead of typing paths by hand:
+* All SR download functions now return the paths to your local files, so you can capture them and pass them to the next step instead of typing paths by hand:
 
   ```r
   siteSR_paths <- download_siteSR(download_folder = "my/data/folder")
