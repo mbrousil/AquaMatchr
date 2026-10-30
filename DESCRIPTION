@@ -1,7 +1,7 @@
 Package: AquaMatchr
 Title: Download, Join, and Analyze AquaMatch Data Products
-Version: 0.0.0.9000
-Date: 2026-10-27
+Version: 0.0.0.9001
+Date: 2026-10-30
 Authors@R: c(
     person(given = c("Matthew", "R."), family = "Brousil",
            email = "matthew.brousil@colostate.edu",
