@@ -1,11 +1,20 @@
 Package: AquaMatchr
 Title: Download, Join, and Analyze AquaMatch Data Products
 Version: 0.0.0.9000
+Date: 2026-10-27
 Authors@R: c(
-    person("Matthew", "Brousil", email = "matthew.brousil@colostate.edu", 
+    person(given = c("Matthew", "R."), family = "Brousil",
+           email = "matthew.brousil@colostate.edu",
            role = c("aut", "cre"), comment = c(ORCID = "0000-0001-8229-9445")),
-    person("Matthew", "Ross", email = "Matt.Ross@colostate.edu", 
-           role = "aut"),
+    person(given = c("Bethel", "G."), family = "Steele",
+           email = "b.steele@colostate.edu",
+           role = "aut", comment = c(ORCID = "0000-0003-4365-4103")),
+    person(given = c("Michael", "F."), family = "Meyer",
+           email = "mfmeyer@usgs.gov",
+           role = "aut", comment = c(ORCID = "0000-0002-8034-9434")),
+    person(given = c("Matthew", "R.V."), family = "Ross",
+           email = "Matt.Ross@colostate.edu",
+           role = "aut", comment = c(ORCID = "0000-0001-9105-4255")),
     person("Radical Open Science Syndicate", role = "cph"))
 Description: Simplifies the downloading, joining, and analysis of AquaMatch
     data products. Download in-situ and surface reflectance ('SR') data from the
@@ -15,7 +24,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Imports: 
+Imports:
     arrow,
     cli,
     DBI,
@@ -29,7 +38,7 @@ Imports:
     readr,
     rlang,
     tidyr
-Suggests: 
+Suggests:
     knitr,
     rmarkdown,
     testthat (>= 3.0.0),
