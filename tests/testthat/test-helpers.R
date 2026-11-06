@@ -220,11 +220,12 @@ write_edi_sidecar <- function(download_filepath, package_id = "edi.mock.1",
 
 # Run download_w_sidecar() with the standard mock arguments
 run_sidecar <- function(download_filepath, update, download_to_path,
-                        entity_key = "mock entity") {
+                        entity_key = "mock entity",
+                        package_id = "edi.mock.1") {
   download_w_sidecar(
     download_filepath = download_filepath,
     update = update,
-    package_id = "edi.mock.1",
+    package_id = package_id,
     entity_id = "mock_1",
     entity_key = entity_key,
     download_to_path = download_to_path
@@ -369,6 +370,52 @@ test_that("download_w_sidecar() with update = 'if_changed' reuses a current file
   expect_equal(readLines(out_path), "current contents")
 })
 
+test_that("download_w_sidecar() with update = 'if_changed' makes no EDI checksum request when the sidecar records the requested revision", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "data.csv")
+  writeLines("current contents", out_path)
+  write_edi_sidecar(out_path)
+
+  # Any attempt to query the EDI checksum endpoint should fail the test
+  testthat::local_mocked_bindings(
+    read_data_entity_checksum = function(...) {
+      stop("the EDI checksum endpoint should not be queried")
+    },
+    .package = "EDIutils"
+  )
+
+  result <- run_sidecar(
+    out_path, update = "if_changed",
+    download_to_path = function(path) stop("download callback should not run")
+  )
+
+  expect_false(result$downloaded)
+  expect_equal(readLines(out_path), "current contents")
+})
+
+test_that("download_w_sidecar() with update = 'if_changed' reuses a file whose entity is unchanged in a newer revision", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "data.csv")
+  writeLines("current contents", out_path)
+  write_edi_sidecar(out_path, package_id = "edi.mock.1")
+
+  # The mock reports the same entity checksum the sidecar recorded, as if the
+  # entity was untouched by the edi.mock.2 revision
+  local_edi_checksum_mock()
+
+  result <- run_sidecar(
+    out_path, update = "if_changed", package_id = "edi.mock.2",
+    download_to_path = function(path) stop("download callback should not run")
+  )
+
+  expect_false(result$downloaded)
+  expect_equal(readLines(out_path), "current contents")
+
+  # The sidecar keeps recording the revision the file was downloaded under
+  metadata <- readRDS(paste0(out_path, ".edi.rds"))
+  expect_equal(metadata$package_id, "edi.mock.1")
+})
+
 test_that("download_w_sidecar() with update = 'if_changed' re-downloads stale files", {
   tmp_dir <- withr::local_tempdir()
 
@@ -397,14 +444,16 @@ test_that("download_w_sidecar() with update = 'if_changed' re-downloads stale fi
   )
   expect_true(result$downloaded)
 
-  # Scenario 3: the remote checksum differs from the recorded one
+  # Scenario 3: a newer package revision changed the remote entity. The sidecar
+  # records edi.mock.1, but edi.mock.2 reports a different checksum for the
+  # entity than the one the sidecar recorded.
   remote_changed <- file.path(tmp_dir, "remote_changed.csv")
   writeLines("original", remote_changed)
   write_edi_sidecar(remote_changed,
                     remote_checksum = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 
   result <- run_sidecar(
-    remote_changed, update = "if_changed",
+    remote_changed, update = "if_changed", package_id = "edi.mock.2",
     download_to_path = function(path) writeLines("fresh", path)
   )
   expect_true(result$downloaded)
@@ -459,6 +508,32 @@ test_that("sidecar_is_current() returns FALSE for a sidecar that is not a list",
     download_filepath = out_path,
     entity_key = "mock entity",
     remote_checksum = fake_edi_checksum
+  ))
+})
+
+test_that("sidecar_is_current() skips the remote comparison when remote_checksum is NULL", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "data.csv")
+  writeLines("current contents", out_path)
+
+  # The recorded remote checksum matches nothing a caller would pass...
+  write_edi_sidecar(out_path,
+                    remote_checksum = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+
+  # ...but the remote comparison is skipped entirely when remote_checksum is
+  # NULL; only the local copy is verified
+  expect_true(sidecar_is_current(
+    download_filepath = out_path,
+    entity_key = "mock entity",
+    remote_checksum = NULL
+  ))
+
+  # A modified local file is still detected without a remote comparison
+  cat("tampered", file = out_path, append = TRUE)
+  expect_false(sidecar_is_current(
+    download_filepath = out_path,
+    entity_key = "mock entity",
+    remote_checksum = NULL
   ))
 })
 

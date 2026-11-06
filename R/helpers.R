@@ -230,7 +230,9 @@ check_update_arg <- function(update) {
 #' @param update Character. One of `"always"`, `"never"`, or `"if_changed"`:
 #'   `"always"` replaces the file; `"never"` keeps an existing file without
 #'   checking its contents; `"if_changed"` reuses it only when the sidecar
-#'   confirms that the selected EDI entity and the local file are unchanged
+#'   confirms that the selected EDI entity and the local file are unchanged.
+#'   When the sidecar already records the requested `package_id`, no EDI checksum
+#'   request is made, because published EDI package revisions are immutable
 #' @param package_id EDI data package ID containing the selected entity
 #' @param entity_id ID of the selected entity within `package_id`
 #' @param entity_key Stable label identifying the entity across package revisions
@@ -286,21 +288,39 @@ download_w_sidecar <- function(download_filepath, update,
 
   remote_checksum <- NULL
 
-  # For "if_changed", compare the current remote entity to the sidecar
+  # For "if_changed", decide whether the existing file can be reused
   if (update == "if_changed" && file_is_present) {
 
-    remote_checksum <- EDIutils::read_data_entity_checksum(
-      packageId = package_id, entityId = entity_id
-    )
-    remote_checksum <- tolower(trimws(remote_checksum))
+    metadata <- read_sidecar(download_filepath, ".edi.rds")
 
-    # Reuse the file only when the sidecar confirms that the remote entity
-    # and the local copy are both unchanged
-    cache_is_current <- sidecar_is_current(
-      download_filepath = download_filepath,
-      entity_key = entity_key,
-      remote_checksum = remote_checksum
-    )
+    if (is.list(metadata) && identical(metadata$package_id, package_id)) {
+      # The sidecar already records this exact revision. Published EDI
+      # revisions are immutable, so the remote entity cannot have changed;
+      # only confirm that the local copy is unmodified. No EDI checksum
+      # request is needed.
+      cache_is_current <- sidecar_is_current(
+        download_filepath = download_filepath,
+        entity_key = entity_key
+      )
+    } else if (is.list(metadata)) {
+      # The sidecar records a different revision. Compare the current remote
+      # entity checksum before re-downloading; a revision bump often leaves
+      # most entities untouched.
+      remote_checksum <- EDIutils::read_data_entity_checksum(
+        packageId = package_id, entityId = entity_id
+      )
+      remote_checksum <- tolower(trimws(remote_checksum))
+
+      cache_is_current <- sidecar_is_current(
+        download_filepath = download_filepath,
+        entity_key = entity_key,
+        remote_checksum = remote_checksum
+      )
+    } else {
+      # Missing or unreadable sidecar: the file's currency cannot be
+      # confirmed, so re-download without a doomed checksum request
+      cache_is_current <- FALSE
+    }
 
     if (cache_is_current) {
       return(invisible(list(path = download_filepath, downloaded = FALSE)))
@@ -681,7 +701,9 @@ read_sidecar <- function(download_filepath, sidecar_suffix) {
 #'
 #' @param download_filepath Path to the local file
 #' @param entity_key Stable label identifying the remote entity
-#' @param remote_checksum Current remote checksum of the entity
+#' @param remote_checksum Current remote checksum of the entity, or NULL to
+#'   skip the remote comparison and only verify the local copy (e.g. when the
+#'   remote source is known to be immutable)
 #' @param sidecar_suffix Suffix appended to `download_filepath` to locate the
 #'   sidecar file
 #' @param algo Checksum algorithm used for the local file. Must match the
@@ -692,7 +714,7 @@ read_sidecar <- function(download_filepath, sidecar_suffix) {
 #'   Returns FALSE (rather than erroring) when the sidecar is missing,
 #'   unreadable, or does not contain a list.
 #' @noRd
-sidecar_is_current <- function(download_filepath, entity_key, remote_checksum,
+sidecar_is_current <- function(download_filepath, entity_key, remote_checksum = NULL,
                                sidecar_suffix = ".edi.rds", algo = "sha1") {
   metadata <- read_sidecar(download_filepath, sidecar_suffix)
 
@@ -703,7 +725,8 @@ sidecar_is_current <- function(download_filepath, entity_key, remote_checksum,
   }
 
   identical(metadata$entity_key, entity_key) &&
-    identical(tolower(metadata$remote_checksum), tolower(trimws(remote_checksum))) &&
+    (is.null(remote_checksum) ||
+       identical(tolower(metadata$remote_checksum), tolower(trimws(remote_checksum)))) &&
     identical(metadata$local_checksum,
               generate_local_checksum(download_filepath, algo = algo))
 }
