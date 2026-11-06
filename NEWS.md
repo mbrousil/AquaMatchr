@@ -78,7 +78,7 @@ Files used to be saved with dates in their names to match information on EDI, li
 ## New features
 
 * New function `download_sceneMetadata()` downloads scene-level metadata (e.g., whole-scene cloud cover) for siteSR or lakeSR. This is useful for quality-checking your data before matching, as demonstrated in the example workflow vignette.
-* New `update = "if_changed"` option for all download functions: keeps your existing files if they haven't changed and re-downloads only the ones that have. Previously, if even one file was missing from a download, all of them were downloaded again. Small files ending in `.edi.rds` or `.zenodo.rds` will appear next to your downloads — these record file checksums so the package can tell whether anything changed, and you can safely ignore them.
+* New `update = "if_changed"` option for all download functions: keeps your existing files if they haven't changed and re-downloads only the ones that have. Previously, if even one file was missing from a download, all of them were downloaded again. Small files ending in `.edi.rds` or `.zenodo.rds` will appear next to your downloads. These record file checksums so the package can tell what version of the file you have stored on your computer. They should not be deleted.
 * `match_siteSR_to_WQP()` now accepts `.parquet` files for `wqp_path` and `siteSR_path` in addition to the formats it accepted before, and `apply_handoffs()` accepts `.feather` or `.parquet` input.
 
 ## Minor improvements
