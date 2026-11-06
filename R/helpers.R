@@ -658,6 +658,25 @@ infer_arrow_format <- function(path, allowed = c("csv", "feather", "parquet")) {
   format
 }
 
+#' Read a checksum sidecar
+#'
+#' @param download_filepath Path to the local file the sidecar describes
+#' @param sidecar_suffix Suffix appended to `download_filepath` to locate the
+#'   sidecar file
+#'
+#' @return The deserialized sidecar contents, or NULL when the sidecar is
+#'   missing or cannot be read.
+#' @noRd
+read_sidecar <- function(download_filepath, sidecar_suffix) {
+  sidecar <- paste0(download_filepath, sidecar_suffix)
+
+  if (!file.exists(sidecar)) {
+    return(NULL)
+  }
+
+  tryCatch(readRDS(sidecar), error = function(e) NULL)
+}
+
 #' Check whether a checksum sidecar indicates an unchanged local file
 #'
 #' @param download_filepath Path to the local file
@@ -670,25 +689,21 @@ infer_arrow_format <- function(path, allowed = c("csv", "feather", "parquet")) {
 #'
 #' @return TRUE if the sidecar exists and records matching `entity_key` and
 #'   `remote_checksum` values plus an unmodified local file; FALSE otherwise.
+#'   Returns FALSE (rather than erroring) when the sidecar is missing,
+#'   unreadable, or does not contain a list.
 #' @noRd
 sidecar_is_current <- function(download_filepath, entity_key, remote_checksum,
                                sidecar_suffix = ".edi.rds", algo = "sha1") {
-  sidecar <- paste0(download_filepath, sidecar_suffix)
+  metadata <- read_sidecar(download_filepath, sidecar_suffix)
 
-  metadata <- if (file.exists(sidecar)) {
-    tryCatch(readRDS(sidecar), error = function(e) NULL)
-  } else {
-    NULL
+  # Validate before dereferencing: a sidecar that deserializes to a non-list
+  # (e.g. a hand-written .rds) would make $ error instead of returning FALSE
+  if (!is.list(metadata)) {
+    return(FALSE)
   }
 
-  remote_matches <- identical(
-    tolower(metadata$remote_checksum),
-    tolower(trimws(remote_checksum))
-  )
-
-  is.list(metadata) &&
-    identical(metadata$entity_key, entity_key) &&
-    remote_matches &&
+  identical(metadata$entity_key, entity_key) &&
+    identical(tolower(metadata$remote_checksum), tolower(trimws(remote_checksum))) &&
     identical(metadata$local_checksum,
               generate_local_checksum(download_filepath, algo = algo))
 }

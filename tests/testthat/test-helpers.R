@@ -447,6 +447,21 @@ test_that("download_w_sidecar() aborts when the download callback creates no fil
   expect_length(list.files(tmp_dir), 0)
 })
 
+test_that("sidecar_is_current() returns FALSE for a sidecar that is not a list", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "data.csv")
+  writeLines("current contents", out_path)
+
+  # A valid RDS containing an atomic vector must not crash the currency check
+  saveRDS("not a metadata list", file = paste0(out_path, ".edi.rds"))
+
+  expect_false(sidecar_is_current(
+    download_filepath = out_path,
+    entity_key = "mock entity",
+    remote_checksum = fake_edi_checksum
+  ))
+})
+
 test_that("sidecar_is_current() respects the sidecar suffix and checksum algorithm", {
   tmp_dir <- withr::local_tempdir()
   out_path <- file.path(tmp_dir, "riverSR_usa_v1.1.feather")
