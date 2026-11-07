@@ -110,11 +110,11 @@ download_parameters <- function(parameters, version = "newest"){
 #' When a file is downloaded, a small metadata file (a "sidecar") is created
 #' next to it, named `<file>.zenodo.rds`. It records the checksum reported by
 #' Zenodo and a separate checksum of the locally saved file. The "if_changed"
-#' option re-downloads riverSR files if the corresponding sidecar is missing,
-#' the checksum reported by Zenodo differs, or the local copy has been
-#' modified. Because the Zenodo record is versioned, its contents do not
-#' change over time; "if_changed" mainly detects modified or corrupted local
-#' copies. Note that in "if_changed" mode, local file checksums are recomputed
+#' option re-downloads riverSR files when the corresponding sidecar is missing
+#' or the local copy has been modified or corrupted. Because the Zenodo record
+#' is versioned, its contents do not change over time, so "if_changed" never
+#' queries Zenodo about existing files; it is a local-integrity check only.
+#' Note that in "if_changed" mode, local file checksums are recomputed
 #' on every call, which can take a minute or more for the multi-gigabyte
 #' riverSR files.
 #'
@@ -131,8 +131,9 @@ download_parameters <- function(parameters, version = "newest"){
 #' + "ask": prompt before replacing an existing local file
 #' + "always": download and replace it
 #' + "never": reuse the local file whenever it exists
-#' + "if_changed": reuse a local file if the checksum reported by Zenodo is
-#' unchanged and the local copy has not been modified; otherwise download it
+#' + "if_changed": reuse a local file if its sidecar confirms the local copy
+#' has not been modified or corrupted; otherwise download it. Because the
+#' Zenodo record is immutable, existing files are never checked against Zenodo
 #'
 #' Note that with "ask", a single prompt covers all riverSR files. Files that
 #' do not exist locally are downloaded in every mode.
@@ -198,21 +199,21 @@ download_riverSR <- function(download_folder, timeout_length = 6000,
   } else if (update == "never") {
     files_to_download <- target_files[!file_is_present]
   } else {
-    # For "if_changed", reuse an existing file only when its sidecar confirms
-    # that the Zenodo version and the local copy are both unchanged
-    zenodo_checksums <- pull_zenodo_files(doi = riverSR_doi)
-
+    # For "if_changed": the riverSR Zenodo record is immutable, so its files
+    # cannot change after download. Reuse an existing file whenever its
+    # sidecar confirms that the local copy has not been modified or corrupted;
+    # this is a local-integrity check only and makes no request to Zenodo.
+    # (The listing is only fetched when a download is needed, to record
+    # checksums in the sidecars of newly written files.)
     files_to_download <- target_files[vapply(
       X = target_files,
       FUN = function(file_name) {
         out_path <- unname(out_files[file_name])
-        remote_checksum <- unname(zenodo_checksums[file_name])
 
-        !file.exists(out_path) || is.na(remote_checksum) ||
+        !file.exists(out_path) ||
           !sidecar_is_current(
             download_filepath = out_path,
             entity_key = file_name,
-            remote_checksum = remote_checksum,
             sidecar_suffix = ".zenodo.rds",
             algo = "md5"
           )

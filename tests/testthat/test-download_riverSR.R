@@ -244,11 +244,13 @@ test_that("update = 'if_changed' reuses files with current sidecars", {
       )
       expect_true(all(file.exists(out)))
     },
-    download_mock = function(...) stop("download_zenodo should not be called")
+    download_mock = function(...) stop("download_zenodo should not be called"),
+    # Existing files are never checked against Zenodo
+    listing_mock = function(doi) stop("pull_zenodo_files should not be called")
   )
 })
 
-test_that("update = 'if_changed' re-downloads changed, corrupted, or missing files", {
+test_that("update = 'if_changed' re-downloads modified, corrupted, or missing files", {
   tmp_dir <- tempfile()
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
@@ -267,18 +269,12 @@ test_that("update = 'if_changed' re-downloads changed, corrupted, or missing fil
   # Case 2: remove a sidecar so the file's currency can't be confirmed
   unlink(file.path(tmp_dir, "nhdplusv2_modified_v1.0.shp.zenodo.rds"))
 
-  # Case 3: Zenodo reports a different checksum for a third file
-  altered_listing <- fake_zenodo_checksums
-  altered_listing[["nhdplusv2_modified_v1.0.shx"]] <-
-    "ffffffffffffffffffffffffffffffff"
-
-  # Case 4: a file is missing entirely (its stale sidecar remains)
+  # Case 3: a file is missing entirely (its stale sidecar remains)
   unlink(file.path(tmp_dir, "nhdplusv2_modified_v1.0.dbf"))
 
   expected_redownloads <- c(
     "riverSR_usa_v1.1.feather",
     "nhdplusv2_modified_v1.0.shp",
-    "nhdplusv2_modified_v1.0.shx",
     "nhdplusv2_modified_v1.0.dbf"
   )
 
@@ -307,8 +303,7 @@ test_that("update = 'if_changed' re-downloads changed, corrupted, or missing fil
         )
       )
     },
-    download_mock = mock_download,
-    listing_mock = function(doi) altered_listing
+    download_mock = mock_download
   )
 })
 
