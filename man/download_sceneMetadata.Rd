@@ -69,6 +69,11 @@ re-downloads a scene metadata file if its sidecar is missing, the remote
 file has changed, or the local copy has been modified. "never" keeps existing
 files as-is without checking their version. Matching filenames are not
 treated as evidence that the files themselves are up-to-date.
+When an existing file is reused under "if_changed" or "never", its
+sidecar is not updated, so the version it records is the version the file
+was originally downloaded under — which may be older than the newest version
+on EDI. To see which version you have for each downloaded file, run
+\code{\link[=check_sr_file_versions]{check_sr_file_versions()}} on the download folder.
 Because the scene-level metadata content is identical in the siteSR and
 lakeSR packages and sidecars are keyed on the EDI entity name, "if_changed"
 may reuse a file that was originally downloaded via the other \code{product}.

@@ -360,6 +360,11 @@ download_riverSR <- function(download_folder, timeout_length = 6000,
 #' missing, the remote file has changed, or the local copy has been modified.
 #' "never" keeps existing files as-is without checking their version. Matching
 #' filenames are not treated as evidence that the files themselves are up-to-date.
+#' When an existing file is reused under "if_changed" or "never", its
+#' sidecar is not updated, so the version it records is the version the file
+#' was originally downloaded under — which may be older than the newest version
+#' on EDI. To see which version you have for each downloaded file, run
+#' [check_sr_file_versions()] on the download folder.
 #' Note that in "if_changed" mode, the local file's checksum is recomputed on
 #' every call, which can take several seconds for the multi-gigabyte siteSR
 #' Feather files.
@@ -686,6 +691,11 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
 #' missing, the remote file has changed, or the local copy has been modified.
 #' "never" keeps existing files as-is without checking their version. Matching
 #' filenames are not treated as evidence that the files themselves are up-to-date.
+#' When an existing file is reused under "if_changed" or "never", its
+#' sidecar is not updated, so the version it records is the version the file
+#' was originally downloaded under — which may be older than the newest version
+#' on EDI. To see which version you have for each downloaded file, run
+#' [check_sr_file_versions()] on the download folder.
 #' Note that in "if_changed" mode, the local file's checksum is recomputed on
 #' every call, which can take several seconds for the multi-gigabyte lakeSR
 #' Feather files.
@@ -1020,6 +1030,11 @@ download_lakeSR <- function(download_folder, algal_mask = FALSE, version = "newe
 #' file has changed, or the local copy has been modified. "never" keeps existing
 #' files as-is without checking their version. Matching filenames are not
 #' treated as evidence that the files themselves are up-to-date.
+#' When an existing file is reused under "if_changed" or "never", its
+#' sidecar is not updated, so the version it records is the version the file
+#' was originally downloaded under — which may be older than the newest version
+#' on EDI. To see which version you have for each downloaded file, run
+#' [check_sr_file_versions()] on the download folder.
 #' Because the scene-level metadata content is identical in the siteSR and
 #' lakeSR packages and sidecars are keyed on the EDI entity name, "if_changed"
 #' may reuse a file that was originally downloaded via the other `product`.

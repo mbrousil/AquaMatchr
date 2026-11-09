@@ -226,6 +226,10 @@ check_update_arg <- function(update) {
 #' and moved into place once the download finishes, so an interrupted download
 #' does not leave a partial file at the destination.
 #'
+#' When a file is reused under `"if_changed"` or `"never"`, the sidecar keeps
+#' its original `package_id` and `checked_at`, recording the version the file
+#' was downloaded under.
+#'
 #' @param download_filepath The path to the local output file
 #' @param update Character. One of `"always"`, `"never"`, or `"if_changed"`:
 #'   `"always"` replaces the file; `"never"` keeps an existing file without
