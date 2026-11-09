@@ -3,6 +3,7 @@
 export("%>%")
 export(apply_handoffs)
 export(build_sr)
+export(check_sr_file_versions)
 export(download_lakeSR)
 export(download_parameters)
 export(download_riverSR)
