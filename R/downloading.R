@@ -318,7 +318,10 @@ download_riverSR <- function(download_folder, timeout_length = 6000,
     if (file_name %in% files_to_download) {
       cli::cli_alert_success("Downloaded {.val {file_name}}.")
     } else {
-      cli::cli_alert_info("Using current local file {.file {file_name}}.")
+      alert_reused_file(
+        unname(out_files[file_name]),
+        sidecar_suffix = ".zenodo.rds"
+      )
     }
   }
 
@@ -538,7 +541,7 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
                      if (result$downloaded) {
                        cli::cli_alert_success("Downloaded {.val {(.x$entityName)}} as {.file {out_name}}.")
                      } else {
-                       cli::cli_alert_info("Using current local file {.file {out_name}}.")
+                       alert_reused_file(out_path)
                      }
 
                      # Return the path to the loop
@@ -594,7 +597,7 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
   if (sites_result$downloaded) {
     cli::cli_alert_success("Downloaded siteSR sites list as {.file {basename(sites_out_name)}}.")
   } else {
-    cli::cli_alert_info("Using current local file {.file {basename(sites_out_name)}}.")
+    alert_reused_file(sites_out_name)
   }
 
   # Download handoffs
@@ -643,7 +646,7 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
   if (handoff_result$downloaded) {
     cli::cli_alert_success("Downloaded handoff coefficients as {.file {basename(handoff_out_name)}}.")
   } else {
-    cli::cli_alert_info("Using current local file {.file {basename(handoff_out_name)}}.")
+    alert_reused_file(handoff_out_name)
   }
   # Suggest citation
   cli::cli_alert_info(
@@ -861,7 +864,7 @@ download_lakeSR <- function(download_folder, algal_mask = FALSE, version = "newe
                      if (result$downloaded) {
                        cli::cli_alert_success("Downloaded {.val {(.x$entityName)}} as {.file {out_name}}.")
                      } else {
-                       cli::cli_alert_info("Using current local file {.file {out_name}}.")
+                       alert_reused_file(out_path)
                      }
 
                      # Return the path to the loop
@@ -919,7 +922,7 @@ download_lakeSR <- function(download_folder, algal_mask = FALSE, version = "newe
   if (lakes_result$downloaded) {
     cli::cli_alert_success("Downloaded lakeSR sites list as {.file {basename(lakes_out_name)}}.")
   } else {
-    cli::cli_alert_info("Using current local file {.file {basename(lakes_out_name)}}.")
+    alert_reused_file(lakes_out_name)
   }
 
   # Download handoffs
@@ -968,7 +971,7 @@ download_lakeSR <- function(download_folder, algal_mask = FALSE, version = "newe
   if (handoff_result$downloaded) {
     cli::cli_alert_success("Downloaded handoff coefficients as {.file {basename(handoff_out_name)}}.")
   } else {
-    cli::cli_alert_info("Using current local file {.file {basename(handoff_out_name)}}.")
+    alert_reused_file(handoff_out_name)
   }
 
   # Suggest citation
@@ -1135,7 +1138,7 @@ download_sceneMetadata <- function(download_folder, product = c("siteSR", "lakeS
       if (result$downloaded) {
         cli::cli_alert_success("Downloaded {.val {entity_name}} as {.file {out_name}}.")
       } else {
-        cli::cli_alert_info("Using current local file {.file {out_name}}.")
+        alert_reused_file(out_path)
       }
 
       # Return the path to the loop

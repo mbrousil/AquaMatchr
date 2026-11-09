@@ -580,6 +580,57 @@ test_that("sidecar_is_current() respects the sidecar suffix and checksum algorit
   ))
 })
 
+test_that("alert_reused_file() reports the EDI version and download date", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "data.csv")
+  writeLines("current contents", out_path)
+  write_edi_sidecar(out_path, package_id = "edi.2254.1")
+
+  expect_message(
+    alert_reused_file(out_path),
+    regexp = "Using current local file.*edi\\.2254\\.1.*downloaded \\d{4}-\\d{2}-\\d{2}"
+  )
+})
+
+test_that("alert_reused_file() reports the Zenodo DOI for .zenodo.rds sidecars", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "riverSR_usa_v1.1.feather")
+  file.create(out_path)
+
+  saveRDS(
+    list(
+      entity_key = "riverSR_usa_v1.1.feather",
+      doi = "10.5281/zenodo.4304567",
+      remote_checksum = "0f343b0931126a20f133d67c2b018a3b",
+      local_checksum = generate_local_checksum(out_path, algo = "md5"),
+      checked_at = Sys.time()
+    ),
+    file = paste0(out_path, ".zenodo.rds")
+  )
+
+  expect_message(
+    alert_reused_file(out_path, sidecar_suffix = ".zenodo.rds"),
+    regexp = "Using current local file.*10\\.5281/zenodo\\.4304567.*downloaded \\d{4}-\\d{2}-\\d{2}"
+  )
+})
+
+test_that("alert_reused_file() falls back to the plain message without a usable sidecar", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "data.csv")
+  writeLines("current contents", out_path)
+
+  # No sidecar at all
+  msgs <- testthat::capture_messages(alert_reused_file(out_path))
+  expect_true(any(grepl("Using current local file", msgs)))
+  expect_false(any(grepl("downloaded", msgs)))
+
+  # A sidecar that is not a metadata list
+  saveRDS("not a metadata list", file = paste0(out_path, ".edi.rds"))
+  msgs <- testthat::capture_messages(alert_reused_file(out_path))
+  expect_true(any(grepl("Using current local file", msgs)))
+  expect_false(any(grepl("downloaded", msgs)))
+})
+
 test_that("pull_zenodo_files() returns lowercase MD5 checksums keyed by file name", {
   testthat::local_mocked_bindings(
     ZenodoManager = list(new = function() {

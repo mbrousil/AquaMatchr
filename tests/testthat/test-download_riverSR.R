@@ -240,7 +240,10 @@ test_that("update = 'if_changed' reuses files with current sidecars", {
     {
       expect_message(
         out <- download_riverSR(download_folder = tmp_dir, update = "if_changed"),
-        regexp = "Using current local file"
+        regexp = paste0(
+          "Using current local file.*10\\.5281/zenodo\\.4304567",
+          ".*downloaded \\d{4}-\\d{2}-\\d{2}"
+        )
       )
       expect_true(all(file.exists(out)))
     },

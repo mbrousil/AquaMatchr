@@ -697,6 +697,50 @@ read_sidecar <- function(download_filepath, sidecar_suffix) {
   tryCatch(readRDS(sidecar), error = function(e) NULL)
 }
 
+#' Message that an existing local file is being reused
+#'
+#' @param download_filepath Path to the local file being reused
+#' @param sidecar_suffix Suffix appended to `download_filepath` to locate the
+#'   sidecar file holding the version metadata
+#'
+#' @return Invisible NULL, called for its message side effect. Reports the
+#'   version (`package_id` for EDI sidecars, `doi` for Zenodo sidecars) and
+#'   download date recorded in the sidecar, or the plain reuse message when the
+#'   sidecar is missing, unreadable, or records no version information.
+#' @noRd
+alert_reused_file <- function(download_filepath, sidecar_suffix = ".edi.rds") {
+  metadata <- read_sidecar(download_filepath, sidecar_suffix)
+
+  file_label <- basename(download_filepath)
+  version_id <- NULL
+  checked_on <- NA_character_
+
+  if (is.list(metadata)) {
+    # EDI sidecars record package_id; Zenodo sidecars record doi
+    version_id <- metadata$package_id
+    if (is.null(version_id)) {
+      version_id <- metadata$doi
+    }
+    if (length(metadata$checked_at) == 1L) {
+      checked_on <- format(metadata$checked_at, format = "%Y-%m-%d")
+    }
+  }
+
+  # Fall back to the plain message when the version or download date is unknown
+  if (is.null(version_id) ||
+      length(version_id) != 1L ||
+      is.na(version_id) ||
+      is.na(checked_on)) {
+    cli::cli_alert_info("Using current local file {.file {file_label}}.")
+  } else {
+    cli::cli_alert_info(
+      "Using current local file {.file {file_label}} ({.val {version_id}}, downloaded {checked_on})."
+    )
+  }
+
+  invisible(NULL)
+}
+
 #' Check whether a checksum sidecar indicates an unchanged local file
 #'
 #' @param download_filepath Path to the local file
