@@ -207,6 +207,36 @@ check_update_arg <- function(update) {
   update
 }
 
+#' Warn about known mask errors in the current lakeSR/siteSR releases
+#'
+#' @param package_id EDI data package ID selected for download
+#'
+#' @return Invisible NULL, called for its message side effect. Emits a warning
+#'   when `package_id` is one of the current releases (edi.2114.1, edi.2254.1),
+#'   whose Landsat 8/9 data products contain mask errors; does nothing for any
+#'   other revision. The scene metadata entities in these releases are
+#'   unaffected, so `download_sceneMetadata()` does not warn.
+#' @noRd
+warn_broken_sr_release <- function(package_id) {
+  broken_releases <- c("edi.2114.1", "edi.2254.1")
+
+  if (package_id %in% broken_releases) {
+    cli::cli_alert_warning(
+      paste0(
+        "This version of the lakeSR/siteSR data release ({.val {package_id}})",
+        " contains mask errors in the Landsat 8 and 9 data products and should",
+        " not be used for final analyses. We recommend using it only for",
+        " planning analyses using the data structure.",
+        " Landsat 4, 5, and 7 data are not affected. An updated release is",
+        " forthcoming that will fix the masking and include more recent",
+        " scene metadata."
+      )
+    )
+  }
+
+  invisible(NULL)
+}
+
 #' Download an EDI entity with a checksum sidecar
 #'
 #' @description

@@ -183,6 +183,22 @@ test_that("infer_arrow_format() respects the `allowed` argument", {
   )
 })
 
+test_that("warn_broken_sr_release() warns only for the known-broken releases", {
+  expect_message(
+    warn_broken_sr_release("edi.2114.1"),
+    regexp = "mask errors"
+  )
+  expect_message(
+    warn_broken_sr_release("edi.2254.1"),
+    regexp = "mask errors"
+  )
+
+  # Other revisions and unrelated packages are silent
+  expect_no_message(warn_broken_sr_release("edi.2114.2"))
+  expect_no_message(warn_broken_sr_release("edi.2254.2"))
+  expect_no_message(warn_broken_sr_release("edi.1756.3"))
+})
+
 # Update argument and sidecar machinery ------------------------------------
 
 # Fixed remote checksum returned by the mocked EDI checksum endpoint

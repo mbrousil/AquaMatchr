@@ -414,6 +414,9 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
   # siteSR EDI ID
   site_sr_id <- construct_id(identifier = 2254, version = version)
 
+  # Warn if the selected release has known data quality issues
+  warn_broken_sr_release(site_sr_id)
+
   # Filenames to be used for dswe1 and 1a, respectively:
   dswe1_names <- c(
     "siteSR_Landsat4_DSWE1.feather",
@@ -741,6 +744,9 @@ download_lakeSR <- function(download_folder, algal_mask = FALSE, version = "newe
 
   # lakeSR EDI ID
   lake_sr_id <- construct_id(identifier = 2114, version = version)
+
+  # Warn if the selected release has known data quality issues
+  warn_broken_sr_release(lake_sr_id)
 
   # Filenames to be used for dswe1 and 1a, respectively:
   dswe1_names <- c(

@@ -246,6 +246,70 @@ test_that("download_siteSR downloads algal mask (DSWE1a) files when requested", 
   ))))
 })
 
+test_that("download_siteSR and download_lakeSR warn about mask errors in the current releases", {
+  tmp_dir <- withr::local_tempdir()
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "siteSR",
+      extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
+    )
+  )
+
+  # Resolution returns the current siteSR release, which has known mask errors
+  testthat::local_mocked_bindings(
+    construct_id = function(...) "edi.2254.1",
+    .package = "AquaMatchr"
+  )
+
+  expect_message(
+    download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                    update = "never"),
+    regexp = "mask errors"
+  )
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "lakeSR",
+      extra_entities = c("lakeSR sites list", "lakeSR handoff coefficients")
+    )
+  )
+
+  testthat::local_mocked_bindings(
+    construct_id = function(...) "edi.2114.1",
+    .package = "AquaMatchr"
+  )
+
+  expect_message(
+    download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE,
+                    update = "never"),
+    regexp = "mask errors"
+  )
+})
+
+test_that("download_siteSR does not warn about mask errors for other revisions", {
+  tmp_dir <- withr::local_tempdir()
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "siteSR",
+      extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
+    )
+  )
+
+  # A newer revision, e.g. one released after the mask errors are fixed
+  testthat::local_mocked_bindings(
+    construct_id = function(...) "edi.2254.2",
+    .package = "AquaMatchr"
+  )
+
+  messages <- testthat::capture_messages(
+    download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                    update = "never")
+  )
+  expect_false(any(grepl("mask errors", messages)))
+})
+
 test_that("download_siteSR aborts when EDI does not return five unique data entities", {
   tmp_dir <- withr::local_tempdir()
 
