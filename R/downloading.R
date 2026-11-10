@@ -378,8 +378,11 @@ download_riverSR <- function(download_folder, timeout_length = 6000,
 #' @param algal_mask Logical. If TRUE, the algal mask version of the dataset (DSWE1a)
 #' will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).
 #' @param version Either "newest" or an integer corresponding to the data package
-#' version to use. The newest version of lakeSR handoff coefficients is used
-#' regardless of what is provided to `version`.
+#' version to use. The lakeSR handoff coefficients are published only within the
+#' lakeSR data package, so they are taken from the lakeSR revision with the same
+#' number as the requested siteSR `version`. With "newest", the newest lakeSR
+#' release is used. If no lakeSR revision matches a numeric `version`, the newest
+#' lakeSR release is used and a warning is issued.
 #' @param update Character. How should updates to existing files be handled? Options are:
 #' + "ask": prompt before replacing an existing local file
 #' + "always": download and replace it
@@ -625,8 +628,8 @@ download_siteSR <- function(download_folder, algal_mask = FALSE, version = "newe
       }
     }
   }
-  # lakeSR EDI ID, for handoffs only
-  lake_sr_id <- construct_id(identifier = 2114, version = "newest")
+  # lakeSR EDI ID, for handoffs only. Matches `version` when it is numeric
+  lake_sr_id <- resolve_handoff_id(version)
 
   dl_handoff <- pull_entity_id(
     package_id = lake_sr_id,

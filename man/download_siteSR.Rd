@@ -19,8 +19,11 @@ should be saved.}
 will be downloaded. Otherwise DSWE1 is used (i.e., FALSE).}
 
 \item{version}{Either "newest" or an integer corresponding to the data package
-version to use. The newest version of lakeSR handoff coefficients is used
-regardless of what is provided to \code{version}.}
+version to use. The lakeSR handoff coefficients are published only within the
+lakeSR data package, so they are taken from the lakeSR revision with the same
+number as the requested siteSR \code{version}. With "newest", the newest lakeSR
+release is used. If no lakeSR revision matches a numeric \code{version}, the newest
+lakeSR release is used and a warning is issued.}
 
 \item{update}{Character. How should updates to existing files be handled? Options are:
 \itemize{

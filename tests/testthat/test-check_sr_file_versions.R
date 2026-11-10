@@ -152,3 +152,87 @@ test_that("check_sr_file_versions() does not recurse into subfolders", {
   )
   expect_equal(nrow(result), 0)
 })
+
+edi_metadata_for <- function(package_id) {
+  modifyList(fake_edi_metadata, list(package_id = package_id))
+}
+
+test_that("check_sr_file_versions() does not warn when files come from matching releases", {
+  tmp_dir <- withr::local_tempdir()
+
+  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.2"))
+  write_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("edi.2254.2"))
+  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+  write_sidecar(tmp_dir, "sceneMetadata_Landsat89.csv", edi_metadata_for("edi.2254.1"))
+  write_sidecar(tmp_dir, "riverSR_usa_v1.1.feather", fake_zenodo_metadata,
+                suffix = ".zenodo.rds")
+
+  expect_no_warning(result <- check_sr_file_versions(tmp_dir))
+  expect_equal(nrow(result), 5)
+})
+
+test_that("check_sr_file_versions() warns when handoffs differ from the siteSR files", {
+  tmp_dir <- withr::local_tempdir()
+
+  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
+  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+
+  expect_warning(
+    result <- check_sr_file_versions(tmp_dir),
+    regexp = "handoff coefficients.*different release.*siteSR"
+  )
+
+  # The returned tibble is unaffected by the check
+  expect_equal(nrow(result), 2)
+  expect_equal(
+    names(result),
+    c("file", "source", "package_id", "checked_at",
+      "remote_checksum", "local_checksum")
+  )
+})
+
+test_that("check_sr_file_versions() warns when handoffs differ from the lakeSR files", {
+  tmp_dir <- withr::local_tempdir()
+
+  write_sidecar(tmp_dir, "lakeSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2114.1"))
+  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+
+  expect_warning(
+    check_sr_file_versions(tmp_dir),
+    regexp = "handoff coefficients.*different release.*lakeSR"
+  )
+})
+
+test_that("check_sr_file_versions() warns when siteSR files come from more than one release", {
+  tmp_dir <- withr::local_tempdir()
+
+  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
+  write_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("edi.2254.2"))
+  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+
+  # Only the within-product warning fires; the handoff comparison is skipped
+  # because there is no single siteSR release to compare against
+  warnings <- testthat::capture_warnings(check_sr_file_versions(tmp_dir))
+  expect_length(warnings, 1)
+  expect_match(warnings, "siteSR files in this folder come from more than one release")
+})
+
+test_that("check_sr_file_versions() ignores sidecars without a usable EDI package ID", {
+  tmp_dir <- withr::local_tempdir()
+
+  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
+  # Unreadable handoff sidecar, and a sidecar with a malformed package ID
+  writeLines("not an rds file", file.path(tmp_dir, "lakeSR_collated_handoffs.csv.edi.rds"))
+  write_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("not-an-id"))
+
+  expect_no_warning(result <- check_sr_file_versions(tmp_dir))
+  expect_equal(nrow(result), 3)
+})
+
+test_that("check_sr_file_versions() does not warn when only handoffs are present", {
+  tmp_dir <- withr::local_tempdir()
+
+  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+
+  expect_no_warning(check_sr_file_versions(tmp_dir))
+})

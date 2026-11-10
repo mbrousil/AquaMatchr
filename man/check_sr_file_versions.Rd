@@ -42,6 +42,22 @@ Sidecars that are unreadable or do not contain a metadata list are still
 reported, with \code{NA} in the metadata fields, rather than dropped. Files
 without a sidecar are not reported at all; run the download functions with
 \code{update = "if_changed"} to restore sidecars for them.
+
+The function also warns when the EDI files in the folder do not fit
+together:
+\itemize{
+\item the siteSR files (or the lakeSR files) come from more than one release, or
+\item the lakeSR handoff coefficients come from a different release than the
+siteSR or lakeSR files. Handoffs are published only within the lakeSR
+package but are used with both products, so their revision is expected to
+match the revision of the siteSR and lakeSR files. This can happen when
+\code{download_siteSR()} and \code{download_lakeSR()} are run with different
+versions in the same folder, because they share one handoff file.
+}
+
+These checks compare EDI revision numbers and assume that siteSR and lakeSR
+revisions are released together. Scene metadata and riverSR files are not
+checked. The returned tibble is not affected by the checks.
 }
 \examples{
 \dontrun{

@@ -237,6 +237,47 @@ warn_broken_sr_release <- function(package_id) {
   invisible(NULL)
 }
 
+#' Resolve the lakeSR package ID that supplies handoff coefficients
+#'
+#' @description
+#' Handoff coefficients are published only within the lakeSR data package but
+#' are also used with siteSR. When a specific `version` is requested, the
+#' matching lakeSR revision is used so that a pinned siteSR download stays
+#' consistent with its handoffs. If that lakeSR revision does not exist, the
+#' newest lakeSR package is used instead and a warning is issued.
+#'
+#' @param version Either "newest" or an integer corresponding to the siteSR data
+#'   package version that was requested
+#'
+#' @return A string containing the lakeSR EDI package ID to take handoffs from
+#' @noRd
+resolve_handoff_id <- function(version) {
+  if (identical(as.character(version), "newest")) {
+    return(construct_id(identifier = 2114, version = "newest"))
+  }
+
+  matching_id <- tryCatch(
+    construct_id(identifier = 2114, version = version),
+    error = function(e) NULL
+  )
+
+  if (!is.null(matching_id)) {
+    return(matching_id)
+  }
+
+  newest_id <- construct_id(identifier = 2114, version = "newest")
+
+  cli::cli_warn(
+    c(
+      "No lakeSR revision {.val {version}} exists to match the requested siteSR version.",
+      "i" = "Using handoff coefficients from the newest lakeSR release ({.val {newest_id}}) instead.",
+      "!" = "These handoffs may not correspond to your siteSR version. Check this before applying them."
+    )
+  )
+
+  newest_id
+}
+
 #' Download an EDI entity with a checksum sidecar
 #'
 #' @description

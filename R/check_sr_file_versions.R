@@ -18,6 +18,20 @@
 #' without a sidecar are not reported at all; run the download functions with
 #' `update = "if_changed"` to restore sidecars for them.
 #'
+#' The function also warns when the EDI files in the folder do not fit
+#' together:
+#' * the siteSR files (or the lakeSR files) come from more than one release, or
+#' * the lakeSR handoff coefficients come from a different release than the
+#'   siteSR or lakeSR files. Handoffs are published only within the lakeSR
+#'   package but are used with both products, so their revision is expected to
+#'   match the revision of the siteSR and lakeSR files. This can happen when
+#'   `download_siteSR()` and `download_lakeSR()` are run with different
+#'   versions in the same folder, because they share one handoff file.
+#'
+#' These checks compare EDI revision numbers and assume that siteSR and lakeSR
+#' revisions are released together. Scene metadata and riverSR files are not
+#' checked. The returned tibble is not affected by the checks.
+#'
 #' @param download_folder String. Path to the folder containing the downloaded
 #'   SR files and their sidecars.
 #'
@@ -121,5 +135,61 @@ check_sr_file_versions <- function(download_folder) {
     )
   }
 
-  purrr::map_dfr(sidecar_names, sidecar_row)
+  versions <- purrr::map_dfr(sidecar_names, sidecar_row)
+
+  warn_inconsistent_sr_versions(versions)
+
+  versions
+}
+
+#' Warn when the EDI files in a folder come from mismatched releases
+#'
+#' @param versions The tibble built by [check_sr_file_versions()]
+#'
+#' @return Invisible NULL, called for its warning side effect. Warns when the
+#'   siteSR or lakeSR files come from more than one release, or when the lakeSR
+#'   handoff coefficients come from a different revision than the siteSR or
+#'   lakeSR files. Rows without a usable EDI package ID are ignored.
+#' @noRd
+warn_inconsistent_sr_versions <- function(versions) {
+  edi <- versions[
+    versions$source == "EDI" &
+      !is.na(versions$package_id) &
+      grepl("^edi\\.[0-9]+\\.[0-9]+$", versions$package_id),
+  ]
+
+  is_handoff <- edi$file == "lakeSR_collated_handoffs.csv"
+
+  product_ids <- list(
+    siteSR = unique(edi$package_id[grepl("^siteSR_", edi$file)]),
+    lakeSR = unique(edi$package_id[grepl("^lakeSR_", edi$file) & !is_handoff])
+  )
+  handoff_ids <- unique(edi$package_id[is_handoff])
+
+  revision_of <- function(package_id) {
+    sub("^edi\\.[0-9]+\\.", "", package_id)
+  }
+
+  for (product in names(product_ids)) {
+    ids <- product_ids[[product]]
+
+    if (length(ids) > 1L) {
+      cli::cli_warn(
+        c(
+          "The {product} files in this folder come from more than one release: {.val {ids}}.",
+          "i" = "Re-run the download function with a single {.arg version} so the files match."
+        )
+      )
+    } else if (length(ids) == 1L && length(handoff_ids) == 1L &&
+               revision_of(ids) != revision_of(handoff_ids)) {
+      cli::cli_warn(
+        c(
+          "The lakeSR handoff coefficients ({.val {handoff_ids}}) come from a different release than the {product} files ({.val {ids}}).",
+          "i" = "Re-run {.fn download_siteSR} or {.fn download_lakeSR} with a matching {.arg version} to refresh them."
+        )
+      )
+    }
+  }
+
+  invisible(NULL)
 }

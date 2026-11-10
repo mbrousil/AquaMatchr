@@ -537,3 +537,147 @@ test_that("download_sceneMetadata downloads and writes both scene metadata files
   expect_equal(ls457$sat_id, "1_2_LT05_003048_19841111")
   expect_equal(ls89$sat_id, "1_LC08_003048_20130519")
 })
+
+test_that("resolve_handoff_id uses the newest lakeSR release for 'newest'", {
+  requested <- list()
+  testthat::local_mocked_bindings(
+    construct_id = function(identifier, version) {
+      requested[[length(requested) + 1]] <<- list(identifier, version)
+      "edi.2114.7"
+    },
+    .package = "AquaMatchr"
+  )
+
+  expect_equal(resolve_handoff_id("newest"), "edi.2114.7")
+  expect_length(requested, 1)
+  expect_equal(requested[[1]], list(2114, "newest"))
+})
+
+test_that("resolve_handoff_id matches the lakeSR revision for numeric versions", {
+  testthat::local_mocked_bindings(
+    construct_id = function(identifier, version) {
+      paste("edi", identifier, version, sep = ".")
+    },
+    .package = "AquaMatchr"
+  )
+
+  expect_no_warning(handoff_id <- resolve_handoff_id(3))
+  expect_equal(handoff_id, "edi.2114.3")
+  expect_equal(resolve_handoff_id("2"), "edi.2114.2")
+})
+
+test_that("resolve_handoff_id falls back to newest with a warning when no revision matches", {
+  testthat::local_mocked_bindings(
+    construct_id = function(identifier, version) {
+      if (version == "newest") {
+        return("edi.2114.2")
+      }
+      cli::cli_abort("The package ID does not seem to exist in EDI.")
+    },
+    .package = "AquaMatchr"
+  )
+
+  expect_warning(
+    handoff_id <- resolve_handoff_id(5),
+    regexp = "No lakeSR revision"
+  )
+  expect_equal(handoff_id, "edi.2114.2")
+})
+
+test_that("resolve_handoff_id errors when the newest lakeSR release cannot be resolved", {
+  testthat::local_mocked_bindings(
+    construct_id = function(identifier, version) {
+      cli::cli_abort("The package ID does not seem to exist in EDI.")
+    },
+    .package = "AquaMatchr"
+  )
+
+  expect_error(suppressWarnings(resolve_handoff_id(5)), regexp = "does not seem to exist")
+})
+
+test_that("download_siteSR takes handoffs from the matching lakeSR revision", {
+  tmp_dir <- withr::local_tempdir()
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "siteSR",
+      extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
+    )
+  )
+  testthat::local_mocked_bindings(
+    construct_id = function(identifier, version) {
+      paste("edi", identifier, version, sep = ".")
+    },
+    .package = "AquaMatchr"
+  )
+
+  result <- suppressMessages(
+    download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                    version = 2, update = "always")
+  )
+
+  handoff_sidecar <- readRDS(paste0(result[["handoffs"]], ".edi.rds"))
+  expect_equal(handoff_sidecar$package_id, "edi.2114.2")
+})
+
+test_that("download_siteSR uses newest handoffs for 'newest' without warning", {
+  tmp_dir <- withr::local_tempdir()
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "siteSR",
+      extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
+    )
+  )
+  testthat::local_mocked_bindings(
+    construct_id = function(identifier, version) {
+      paste("edi", identifier, if (version == "newest") 4 else version, sep = ".")
+    },
+    .package = "AquaMatchr"
+  )
+
+  expect_no_warning(
+    result <- suppressMessages(
+      download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                      version = "newest", update = "always")
+    )
+  )
+
+  handoff_sidecar <- readRDS(paste0(result[["handoffs"]], ".edi.rds"))
+  expect_equal(handoff_sidecar$package_id, "edi.2114.4")
+})
+
+test_that("download_siteSR warns and uses newest handoffs when no lakeSR revision matches", {
+  tmp_dir <- withr::local_tempdir()
+
+  local_sr_download_mocks(
+    entity_table = mock_sr_entities(
+      prefix = "siteSR",
+      extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
+    )
+  )
+  testthat::local_mocked_bindings(
+    construct_id = function(identifier, version) {
+      # Only siteSR has revision 3; lakeSR's newest is revision 2
+      if (identifier == 2114 && version == "newest") {
+        return("edi.2114.2")
+      }
+      if (identifier == 2114) {
+        cli::cli_abort("The package ID does not seem to exist in EDI.")
+      }
+      paste("edi", identifier, version, sep = ".")
+    },
+    .package = "AquaMatchr"
+  )
+
+  expect_warning(
+    result <- suppressMessages(
+      download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
+                      version = 3, update = "always")
+    ),
+    regexp = "No lakeSR revision"
+  )
+
+  handoff_sidecar <- readRDS(paste0(result[["handoffs"]], ".edi.rds"))
+  expect_equal(handoff_sidecar$package_id, "edi.2114.2")
+})
