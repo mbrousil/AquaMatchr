@@ -64,10 +64,11 @@ re-downloads siteSR files if the corresponding sidecar is
 missing, the remote file has changed, or the local copy has been modified.
 "never" keeps existing files as-is without checking their version. Matching
 filenames are not treated as evidence that the files themselves are up-to-date.
-When an existing file is reused under "if_changed" or "never", its
-sidecar is not updated, so the version it records is the version the file
-was originally downloaded under — which may be older than the newest version
-on EDI. To see which version you have for each downloaded file, run
+When an existing file is reused under "if_changed" because it is unchanged
+in a newer EDI revision, its sidecar is updated to record that revision.
+Under "never", sidecars are not updated, so the version recorded is the
+version the file was downloaded under, which may be older than the newest
+version on EDI. To see which version you have for each downloaded file, run
 \code{\link[=check_sr_file_versions]{check_sr_file_versions()}} on the download folder.
 Note that in "if_changed" mode, the local file's checksum is recomputed on
 every call, which can take several seconds for the multi-gigabyte siteSR

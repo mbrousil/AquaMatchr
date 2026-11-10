@@ -238,3 +238,61 @@ test_that("check_sr_file_versions() does not warn when only handoffs are present
 
   expect_no_warning(check_sr_file_versions(tmp_dir))
 })
+
+test_that("check_sr_file_versions() does not warn when unchanged files are reused across a revision bump", {
+  tmp_dir <- withr::local_tempdir()
+  file_names <- c("siteSR_Landsat4_DSWE1.feather", "siteSR_Landsat5_DSWE1.feather")
+
+  # Writes a small stand-in file for each entity
+  write_stub <- function(file_name, text) {
+    function(out_path) writeLines(text, out_path)
+  }
+
+  # Revision 1: both files are downloaded and sidecars are written
+  testthat::local_mocked_bindings(
+    read_data_entity_checksum = function(packageId, entityId) paste0("rev1-", entityId),
+    .package = "EDIutils"
+  )
+  for (file_name in file_names) {
+    download_w_sidecar(
+      download_filepath = file.path(tmp_dir, file_name),
+      update = "if_changed",
+      package_id = "edi.2254.1",
+      entity_id = file_name,
+      entity_key = file_name,
+      download_to_path = write_stub(file_name, "rev 1")
+    )
+  }
+
+  # Revision 2: Landsat 4 is unchanged on EDI (same checksum) so it is reused;
+  # Landsat 5 changed so it is downloaded again
+  testthat::local_mocked_bindings(
+    read_data_entity_checksum = function(packageId, entityId) {
+      if (entityId == "siteSR_Landsat4_DSWE1.feather") {
+        "rev1-siteSR_Landsat4_DSWE1.feather"
+      } else {
+        "rev2-changed"
+      }
+    },
+    .package = "EDIutils"
+  )
+  results <- lapply(file_names, function(file_name) {
+    download_w_sidecar(
+      download_filepath = file.path(tmp_dir, file_name),
+      update = "if_changed",
+      package_id = "edi.2254.2",
+      entity_id = file_name,
+      entity_key = file_name,
+      download_to_path = write_stub(file_name, "rev 2")
+    )
+  })
+  expect_equal(vapply(results, function(x) x$downloaded, logical(1)), c(FALSE, TRUE))
+
+  # The reused file's sidecar now records the revision it matches
+  reused_sidecar <- readRDS(file.path(tmp_dir, paste0(file_names[1], ".edi.rds")))
+  expect_equal(reused_sidecar$package_id, "edi.2254.2")
+
+  # The folder is a complete, current revision 2 set, so it should not be
+  # reported as a mixed-release folder
+  expect_no_warning(check_sr_file_versions(tmp_dir))
+})

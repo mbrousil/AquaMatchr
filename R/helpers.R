@@ -303,9 +303,13 @@ resolve_handoff_id <- function(version) {
 #' and moved into place once the download finishes, so an interrupted download
 #' does not leave a partial file at the destination.
 #'
-#' When a file is reused under `"if_changed"` or `"never"`, the sidecar keeps
-#' its original `package_id` and `checked_at`, recording the version the file
-#' was downloaded under.
+#' When a file is reused under `"if_changed"` because the sidecar records an
+#' older revision but the remote entity checksum and the local copy are both
+#' unchanged, the sidecar is rewritten with the requested `package_id` and the
+#' current `entity_id`; `checked_at` and the checksums are kept, so it still
+#' records when the file was downloaded. A sidecar that already records the
+#' requested `package_id` is left as is, and under `"never"` no sidecar is
+#' modified.
 #'
 #' @param download_filepath The path to the local output file
 #' @param update Character. One of `"always"`, `"never"`, or `"if_changed"`:
@@ -404,6 +408,14 @@ download_w_sidecar <- function(download_filepath, update,
     }
 
     if (cache_is_current) {
+      # The file is unchanged but EDI published a newer revision. Record the
+      # revision it now matches so the sidecar's version stays accurate
+      if (!identical(metadata$package_id, package_id)) {
+        saveRDS(
+          modifyList(metadata, list(package_id = package_id, entity_id = entity_id)),
+          sidecar
+        )
+      }
       return(invisible(list(path = download_filepath, downloaded = FALSE)))
     }
   }

@@ -115,7 +115,7 @@ download_siteSR(
 )
 ```
 
-The `update` argument controls how existing local files are handled and is available in each of the package's file-downloading functions: `"ask"` (the default) prompts before replacing existing files, `"always"` re-downloads them, `"never"` reuses them whenever they exist, and `"if_changed"` reuses them only when a checksum sidecar written next to each downloaded file (`<file>.edi.rds`) confirms that neither the remote file nor the local copy has changed. When a file is reused, its recorded version stays the version it was originally downloaded under, so it may be older than the newest version available; `check_sr_file_versions()` reports which version you have for each downloaded file.
+The `update` argument controls how existing local files are handled and is available in each of the package's file-downloading functions: `"ask"` (the default) prompts before replacing existing files, `"always"` re-downloads them, `"never"` reuses them whenever they exist, and `"if_changed"` reuses them only when a checksum sidecar written next to each downloaded file (`<file>.edi.rds`) confirms that neither the remote file nor the local copy has changed. When `"if_changed"` reuses a file that is unchanged in a newer release, its recorded version is updated to that release; with `"never"` the recorded version stays the one it was downloaded under, so it may be older than the newest version available. `check_sr_file_versions()` reports which version you have for each downloaded file.
 
 The `download_siteSR()` function downloads the following files from EDI:
 

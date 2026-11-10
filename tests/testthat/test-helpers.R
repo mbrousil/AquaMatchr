@@ -417,6 +417,7 @@ test_that("download_w_sidecar() with update = 'if_changed' reuses a file whose e
   out_path <- file.path(tmp_dir, "data.csv")
   writeLines("current contents", out_path)
   write_edi_sidecar(out_path, package_id = "edi.mock.1")
+  original_metadata <- readRDS(paste0(out_path, ".edi.rds"))
 
   # The mock reports the same entity checksum the sidecar recorded, as if the
   # entity was untouched by the edi.mock.2 revision
@@ -430,9 +431,27 @@ test_that("download_w_sidecar() with update = 'if_changed' reuses a file whose e
   expect_false(result$downloaded)
   expect_equal(readLines(out_path), "current contents")
 
-  # The sidecar keeps recording the revision the file was downloaded under
+  # The sidecar is updated to the revision the file now matches, but still
+  # records when the file was downloaded
   metadata <- readRDS(paste0(out_path, ".edi.rds"))
-  expect_equal(metadata$package_id, "edi.mock.1")
+  expect_equal(metadata$package_id, "edi.mock.2")
+  expect_equal(metadata$checked_at, original_metadata$checked_at)
+  expect_equal(metadata$local_checksum, original_metadata$local_checksum)
+})
+
+test_that("download_w_sidecar() with update = 'never' leaves an older revision's sidecar untouched", {
+  tmp_dir <- withr::local_tempdir()
+  out_path <- file.path(tmp_dir, "data.csv")
+  writeLines("current contents", out_path)
+  write_edi_sidecar(out_path, package_id = "edi.mock.1")
+
+  result <- run_sidecar(
+    out_path, update = "never", package_id = "edi.mock.2",
+    download_to_path = function(path) stop("download callback should not run")
+  )
+
+  expect_false(result$downloaded)
+  expect_equal(readRDS(paste0(out_path, ".edi.rds"))$package_id, "edi.mock.1")
 })
 
 test_that("download_w_sidecar() with update = 'if_changed' re-downloads stale files", {
