@@ -251,6 +251,8 @@ test_that("match_siteSR_to_WQP calculates offsets, filters correctly, and valida
   )
 
   # Verify the DuckDB math inside the saved parquet file
+  # time_diff is in days and signed as in-situ minus Landsat overpass, so the
+  # in-situ time being 4 h 12 min (4.2 h / 24 = 0.175 d) earlier gives -0.175
   res_match <- arrow::read_parquet(out_match)
   expect_equal(res_match$time_diff[1], -0.175)
 
@@ -408,6 +410,8 @@ for (i in seq_len(nrow(formats_to_test))) {
       expect_true(file.exists(out_path))
 
       # Same DuckDB math regardless of input format
+      # -0.175 days = in-situ 4 h 12 min before the Landsat overpass (signed as
+      # in-situ minus Landsat; see the offsets test above)
       res <- arrow::read_parquet(out_path)
       expect_equal(nrow(res), 1)
       expect_equal(res$time_diff[1], -0.175)
@@ -489,6 +493,21 @@ test_that("apply_handoffs computes Roy linear math and flags extreme values", {
 
   # Create dummy handoff data (Roy Deming, LS5 to LS7)
   # Math check: intercept(10) + slope(2) * input
+  #
+  # Handoff layout (shared by the apply_handoffs() tests below):
+  # - correction/method/dswe select the rows used: Roy_deming with
+  #   algal_mask = FALSE means correction "Roy", method "deming", dswe "DSWE1"
+  # - sat_corr is the satellite being corrected and sat_to is the target, which
+  #   must match sat_target. Missions are first mapped to sat_corr names
+  #   (LT04/LT05 -> LS5, LE07 -> LS7, LC08/LC09 -> LS8)
+  # - band is the SR column the coefficients apply to
+  # - Roy uses intercept + slope; Gardner uses intercept + B1 and B2 (the
+  #   unused ones are NA)
+  # - min_in_val/max_in_val is the input range the handoff was fit on. Values
+  #   outside it are still corrected but flagged "extreme value"
+  # Outputs are named <lowercase band without "med_">_corr_<target number>,
+  # with a matching flag_ column, e.g. med_Blue with sat_target LS7 gives
+  # blue_corr_7 and flag_blue_7
   handoff_df <- data.frame(
     correction = "Roy",
     method = "deming",
@@ -547,6 +566,8 @@ test_that("apply_handoffs() gives the same results for .feather and .parquet inp
 
   # Dummy handoff data (Roy Deming, LS5 to LS7)
   # Math check: intercept(10) + slope(2) * input
+  # Same layout as in the Roy linear math test above; see its handoff comment
+  # for what the columns mean and how outputs (e.g. blue_corr_7) are named
   handoff_df <- data.frame(
     correction = "Roy",
     method = "deming",
@@ -645,6 +666,8 @@ test_that("apply_handoffs computes Gardner polynomial math and handles missing b
 
   # Create dummy handoff Data (Gardner Poly, LS8 to LS7)
   # Math check: intercept(5) + B1(2) * input + B2(0.5) * input^2
+  # Same layout as in the Roy linear math test above; Gardner polynomials use
+  # B1/B2 instead of slope, so slope is NA here. Output is green_corr_7
   handoff_df <- data.frame(
     correction = "Gardner",
     method = "poly",

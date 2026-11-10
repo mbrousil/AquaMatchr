@@ -1,7 +1,8 @@
 # Write a sidecar matching what the download functions write after a
-# successful download. The data file itself does not need to exist.
-write_sidecar <- function(folder, file_name, metadata,
-                         suffix = ".edi.rds") {
+# successful download. The data file itself does not need to exist. Named
+# write_fake_sidecar so it can't mask a package function of the same name.
+write_fake_sidecar <- function(folder, file_name, metadata,
+                               suffix = ".edi.rds") {
   saveRDS(metadata, file = file.path(folder, paste0(file_name, suffix)))
 }
 
@@ -20,6 +21,11 @@ fake_zenodo_metadata <- list(
   local_checksum = "6067e1795b88e18b6f21f250b151e2ab",
   checked_at = as.POSIXct("2026-11-02 12:00:00")
 )
+
+# EDI sidecar metadata identical to fake_edi_metadata except for its package ID
+edi_metadata_for <- function(package_id) {
+  modifyList(fake_edi_metadata, list(package_id = package_id))
+}
 
 test_that("check_sr_file_versions() aborts when the folder does not exist", {
   expect_error(
@@ -59,11 +65,11 @@ test_that("check_sr_file_versions() returns a typed empty tibble when no sidecar
 test_that("check_sr_file_versions() reports EDI and Zenodo sidecars", {
   tmp_dir <- withr::local_tempdir()
 
-  write_sidecar(
+  write_fake_sidecar(
     tmp_dir, "lakeSR_poi_with_flags.csv",
     metadata = fake_edi_metadata
   )
-  write_sidecar(
+  write_fake_sidecar(
     tmp_dir, "riverSR_usa_v1.1.feather",
     suffix = ".zenodo.rds",
     metadata = fake_zenodo_metadata
@@ -116,7 +122,7 @@ test_that("check_sr_file_versions() reports NA only for the fields a sidecar lac
   tmp_dir <- withr::local_tempdir()
 
   # A list sidecar missing the timestamp and local checksum
-  write_sidecar(
+  write_fake_sidecar(
     tmp_dir, "partial.feather",
     metadata = list(
       package_id = "edi.2254.1",
@@ -144,7 +150,7 @@ test_that("check_sr_file_versions() does not recurse into subfolders", {
   sub_dir <- file.path(tmp_dir, "nested")
   dir.create(sub_dir)
 
-  write_sidecar(sub_dir, "nested.feather", metadata = fake_edi_metadata)
+  write_fake_sidecar(sub_dir, "nested.feather", metadata = fake_edi_metadata)
 
   expect_message(
     result <- check_sr_file_versions(tmp_dir),
@@ -153,19 +159,15 @@ test_that("check_sr_file_versions() does not recurse into subfolders", {
   expect_equal(nrow(result), 0)
 })
 
-edi_metadata_for <- function(package_id) {
-  modifyList(fake_edi_metadata, list(package_id = package_id))
-}
-
 test_that("check_sr_file_versions() does not warn when files come from matching releases", {
   tmp_dir <- withr::local_tempdir()
 
-  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.2"))
-  write_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("edi.2254.2"))
-  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
-  write_sidecar(tmp_dir, "sceneMetadata_Landsat89.csv", edi_metadata_for("edi.2254.1"))
-  write_sidecar(tmp_dir, "riverSR_usa_v1.1.feather", fake_zenodo_metadata,
-                suffix = ".zenodo.rds")
+  write_fake_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.2"))
+  write_fake_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("edi.2254.2"))
+  write_fake_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+  write_fake_sidecar(tmp_dir, "sceneMetadata_Landsat89.csv", edi_metadata_for("edi.2254.1"))
+  write_fake_sidecar(tmp_dir, "riverSR_usa_v1.1.feather", fake_zenodo_metadata,
+                     suffix = ".zenodo.rds")
 
   expect_no_warning(result <- check_sr_file_versions(tmp_dir))
   expect_equal(nrow(result), 5)
@@ -174,8 +176,8 @@ test_that("check_sr_file_versions() does not warn when files come from matching 
 test_that("check_sr_file_versions() warns when handoffs differ from the siteSR files", {
   tmp_dir <- withr::local_tempdir()
 
-  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
-  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+  write_fake_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
+  write_fake_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
 
   expect_warning(
     result <- check_sr_file_versions(tmp_dir),
@@ -194,8 +196,8 @@ test_that("check_sr_file_versions() warns when handoffs differ from the siteSR f
 test_that("check_sr_file_versions() warns when handoffs differ from the lakeSR files", {
   tmp_dir <- withr::local_tempdir()
 
-  write_sidecar(tmp_dir, "lakeSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2114.1"))
-  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+  write_fake_sidecar(tmp_dir, "lakeSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2114.1"))
+  write_fake_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
 
   expect_warning(
     check_sr_file_versions(tmp_dir),
@@ -206,9 +208,9 @@ test_that("check_sr_file_versions() warns when handoffs differ from the lakeSR f
 test_that("check_sr_file_versions() warns when siteSR files come from more than one release", {
   tmp_dir <- withr::local_tempdir()
 
-  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
-  write_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("edi.2254.2"))
-  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+  write_fake_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
+  write_fake_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("edi.2254.2"))
+  write_fake_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
 
   # Only the within-product warning fires; the handoff comparison is skipped
   # because there is no single siteSR release to compare against
@@ -220,10 +222,10 @@ test_that("check_sr_file_versions() warns when siteSR files come from more than 
 test_that("check_sr_file_versions() ignores sidecars without a usable EDI package ID", {
   tmp_dir <- withr::local_tempdir()
 
-  write_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
+  write_fake_sidecar(tmp_dir, "siteSR_Landsat4_DSWE1.feather", edi_metadata_for("edi.2254.1"))
   # Unreadable handoff sidecar, and a sidecar with a malformed package ID
   writeLines("not an rds file", file.path(tmp_dir, "lakeSR_collated_handoffs.csv.edi.rds"))
-  write_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("not-an-id"))
+  write_fake_sidecar(tmp_dir, "siteSR_Landsat5_DSWE1.feather", edi_metadata_for("not-an-id"))
 
   expect_no_warning(result <- check_sr_file_versions(tmp_dir))
   expect_equal(nrow(result), 3)
@@ -232,7 +234,7 @@ test_that("check_sr_file_versions() ignores sidecars without a usable EDI packag
 test_that("check_sr_file_versions() does not warn when only handoffs are present", {
   tmp_dir <- withr::local_tempdir()
 
-  write_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
+  write_fake_sidecar(tmp_dir, "lakeSR_collated_handoffs.csv", edi_metadata_for("edi.2114.2"))
 
   expect_no_warning(check_sr_file_versions(tmp_dir))
 })

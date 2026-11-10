@@ -22,6 +22,13 @@ fake_zenodo_checksums <- c(
 
 # Run code with the zen4R download mock and the AquaMatchr Zenodo listing mock
 # in place
+#
+# The download mocks passed in as `download_mock` throughout this file use the
+# signature function(path, ..., files). It is a reduced copy of
+# zen4R::download_zenodo(doi, path, files, ...): only `path` and `files` are
+# named because they are what the mocks use (to create the requested files and
+# record what was requested), and `...` absorbs the rest (doi, timeout) that
+# download_riverSR() passes.
 with_riverSR_mocks <- function(code, download_mock,
                                listing_mock = function(doi) fake_zenodo_checksums) {
   testthat::with_mocked_bindings(
@@ -188,6 +195,10 @@ test_that("download_riverSR prompts the user with update = 'ask'", {
   # Pre-create all files so that the prompt triggers
   file.create(file.path(tmp_dir, target_files))
 
+  # Mock get_user_input() rather than ask_user(), so the real prompt logic
+  # (message text, answer validation) still runs and only the typed answer is
+  # faked.
+  #
   # User declines: the download is cancelled and nothing is touched
   testthat::with_mocked_bindings(
     {
@@ -402,7 +413,10 @@ test_that("download_riverSR aborts informatively if Zenodo does not report a che
   # The download itself succeeded, so all data files remain on disk...
   expect_true(all(file.exists(file.path(tmp_dir, target_files))))
 
-  # ...but sidecars were written only for the files processed before the abort
+  # ...but sidecars were written only for the files processed before the abort.
+  # Files are processed in target_files order, so the feather, .shp, and .shx
+  # get sidecars; .dbf is the first file without a checksum and triggers the
+  # abort, which leaves .dbf and the later .prj without one
   expect_true(file.exists(file.path(
     tmp_dir, "nhdplusv2_modified_v1.0.shx.zenodo.rds"
   )))

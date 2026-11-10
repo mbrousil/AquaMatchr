@@ -1,3 +1,8 @@
+# The construct_id() tests below are not mocked: they query live EDI, so they
+# need network access plus EDI credentials (check_edi_auth() runs first) and
+# fail without them. Unlike the live cdom test further down, they don't skip.
+# The two expect_error() tests would also pass without credentials, but for
+# the wrong reason (the auth error).
 test_that("IDs construct", {
   expect_equal(construct_id(identifier = 1756, version = 1), "edi.1756.1")
 })
@@ -204,6 +209,7 @@ test_that("download_siteSR proceeds when user agrees to overwrite files", {
 
   # Assert the function completed and returned all seven paths
   expect_type(result, "character")
+  # 5 Landsat files + the sites list + the handoffs
   expect_length(result, 7)
   expect_true(all(file.exists(result)))
 })
@@ -232,6 +238,7 @@ test_that("download_siteSR downloads algal mask (DSWE1a) files when requested", 
 
   # All seven paths returned, under the DSWE1a filenames
   expect_type(result, "character")
+  # 5 Landsat files + the sites list + the handoffs
   expect_length(result, 7)
   expect_true(all(file.exists(result)))
   expect_true(all(c(
@@ -256,7 +263,9 @@ test_that("download_siteSR and download_lakeSR warn about mask errors in the cur
     )
   )
 
-  # Resolution returns the current siteSR release, which has known mask errors
+  # Override the helper's construct_id() mock (edi.mock.1) with a known-broken
+  # release. edi.2254.1 (siteSR) and edi.2114.1 (lakeSR) are the releases
+  # listed in warn_broken_sr_release(); the most recent mock wins
   testthat::local_mocked_bindings(
     construct_id = function(...) "edi.2254.1",
     .package = "AquaMatchr"
@@ -268,6 +277,9 @@ test_that("download_siteSR and download_lakeSR warn about mask errors in the cur
     regexp = "mask errors"
   )
 
+  # Second call deliberately replaces the first: it swaps in the lakeSR entity
+  # table, but it also resets construct_id() to edi.mock.1, so the lakeSR
+  # known-broken release has to be mocked again below
   local_sr_download_mocks(
     entity_table = mock_sr_entities(
       prefix = "lakeSR",
@@ -386,6 +398,7 @@ test_that("download_lakeSR proceeds when user agrees to overwrite files", {
 
   # Assert the function completed and returned all seven paths
   expect_type(result, "character")
+  # 5 Landsat files + the sites list + the handoffs
   expect_length(result, 7)
   expect_true(all(file.exists(result)))
 })
@@ -433,6 +446,7 @@ test_that("download_lakeSR downloads algal mask (DSWE1a) files when requested", 
 
   # All seven paths returned, under the DSWE1a filenames
   expect_type(result, "character")
+  # 5 Landsat files + the sites list + the handoffs
   expect_length(result, 7)
   expect_true(all(file.exists(result)))
   expect_true(all(c(
@@ -604,6 +618,8 @@ test_that("download_siteSR takes handoffs from the matching lakeSR revision", {
       extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
     )
   )
+  # Echo the requested revision back as "edi.<identifier>.<version>" so the
+  # handoff sidecar's package_id shows which revision download_siteSR() asked for
   testthat::local_mocked_bindings(
     construct_id = function(identifier, version) {
       paste("edi", identifier, version, sep = ".")
@@ -629,6 +645,8 @@ test_that("download_siteSR uses newest handoffs for 'newest' without warning", {
       extra_entities = c("siteSR sites list", "lakeSR handoff coefficients")
     )
   )
+  # Any "newest" lookup resolves to revision 4, a made-up number. The test
+  # checks the lakeSR (2114) one, which is where handoffs come from
   testthat::local_mocked_bindings(
     construct_id = function(identifier, version) {
       paste("edi", identifier, if (version == "newest") 4 else version, sep = ".")

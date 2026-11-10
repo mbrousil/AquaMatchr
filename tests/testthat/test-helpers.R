@@ -204,6 +204,9 @@ test_that("warn_broken_sr_release() warns only for the known-broken releases", {
 # Fixed remote checksum returned by the mocked EDI checksum endpoint
 fake_edi_checksum <- "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
 
+# Arbitrary stand-in for any checksum that differs from fake_edi_checksum
+different_checksum <- "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
 # Mock the EDI checksum endpoint. Must be called from a test body: the mocks
 # are tied to the calling test via .env = parent.frame(), otherwise they would
 # be torn down when this helper returns.
@@ -465,8 +468,7 @@ test_that("download_w_sidecar() with update = 'if_changed' re-downloads stale fi
   # entity than the one the sidecar recorded.
   remote_changed <- file.path(tmp_dir, "remote_changed.csv")
   writeLines("original", remote_changed)
-  write_edi_sidecar(remote_changed,
-                    remote_checksum = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+  write_edi_sidecar(remote_changed, remote_checksum = different_checksum)
 
   result <- run_sidecar(
     remote_changed, update = "if_changed", package_id = "edi.mock.2",
@@ -533,8 +535,7 @@ test_that("sidecar_is_current() skips the remote comparison when remote_checksum
   writeLines("current contents", out_path)
 
   # The recorded remote checksum matches nothing a caller would pass...
-  write_edi_sidecar(out_path,
-                    remote_checksum = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+  write_edi_sidecar(out_path, remote_checksum = different_checksum)
 
   # ...but the remote comparison is skipped entirely when remote_checksum is
   # NULL; only the local copy is verified
@@ -648,6 +649,8 @@ test_that("alert_reused_file() falls back to the plain message without a usable 
 })
 
 test_that("pull_zenodo_files() returns lowercase MD5 checksums keyed by file name", {
+  # The nested lists stand in for the zen4R call chain in pull_zenodo_files():
+  # ZenodoManager$new() -> getRecordByDOI(doi) -> listFiles(pretty = TRUE)
   testthat::local_mocked_bindings(
     ZenodoManager = list(new = function() {
       list(getRecordByDOI = function(doi) {
