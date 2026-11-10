@@ -271,7 +271,7 @@ test_that("download_siteSR and download_lakeSR warn about mask errors in the cur
     .package = "AquaMatchr"
   )
 
-  expect_message(
+  expect_warning(
     download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
                     update = "never"),
     regexp = "mask errors"
@@ -292,7 +292,7 @@ test_that("download_siteSR and download_lakeSR warn about mask errors in the cur
     .package = "AquaMatchr"
   )
 
-  expect_message(
+  expect_warning(
     download_lakeSR(download_folder = tmp_dir, algal_mask = FALSE,
                     update = "never"),
     regexp = "mask errors"
@@ -315,11 +315,10 @@ test_that("download_siteSR does not warn about mask errors for other revisions",
     .package = "AquaMatchr"
   )
 
-  messages <- testthat::capture_messages(
+  expect_no_warning(
     download_siteSR(download_folder = tmp_dir, algal_mask = FALSE,
                     update = "never")
   )
-  expect_false(any(grepl("mask errors", messages)))
 })
 
 test_that("download_siteSR aborts when EDI does not return five unique data entities", {
